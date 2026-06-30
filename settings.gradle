@@ -1,0 +1,18 @@
+pluginManagement {
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    // Loom adds its own local remap repositories at project level; do not use
+    // FAIL_ON_PROJECT_REPOS here.
+    repositories {
+        mavenCentral()
+        maven { url = 'https://maven.fabricmc.net/' }
+    }
+}
+
+rootProject.name = 'RTWrapper'

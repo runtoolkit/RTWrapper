@@ -1,0 +1,7 @@
+{
+  "pack": {
+    "pack_format": 104,
+    "supported_formats": [104, 104],
+    "description": "RTWrapper 26.2 macro-command wrapper API"
+  }
+}
