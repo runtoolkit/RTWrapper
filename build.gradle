@@ -43,7 +43,6 @@ sourceSets {
             // Embed the standalone datapack as mod data resources while keeping
             // datapack/RTWrapper-Datapack as a separate root deliverable.
             srcDir 'datapack/RTWrapper-Datapack'
-            exclude 'pack.mcmeta'
             exclude 'README.md'
         }
     }
