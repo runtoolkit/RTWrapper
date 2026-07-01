@@ -1,7 +1,18 @@
 {
   "pack": {
-    "pack_format": 104,
-    "supported_formats": [104, 104],
-    "description": "RTWrapper 26.2 macro-command wrapper API"
+    "description": "RTWrapper 26.2 macro-command wrapper API",
+    "min_format": [
+      107,
+      1
+    ],
+    "max_format": [
+      107,
+      1
+    ]
+  },
+  "features": {
+    "enabled": [
+      "minecraft:vanilla"
+    ]
   }
 }
