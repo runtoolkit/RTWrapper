@@ -45,7 +45,7 @@ def main() -> None:
 
     pack_mcmeta = load_json(PACK / 'pack.mcmeta')
     if pack_mcmeta.get('pack', {}).get('pack_format') != 1097:
-        fail('pack.mcmeta pack_format must be 104 for the 26.2 target')
+        fail('pack.mcmeta pack_format must be 107 for the 26.2 target')
 
     required_tag_values = {
         'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
