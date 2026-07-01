@@ -32,5 +32,6 @@
     "loaded": {
       "trigger": "minecraft:tick"
     }
-  }
+  },
+  "sends_telemetry_event": false
 }
