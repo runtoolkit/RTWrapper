@@ -1,6 +1,11 @@
 {
   "pack": {
     "description": "RTWrapper 26.2 macro-command wrapper API",
+    "pack_format": 107,
+    "supported_formats": {
+      "min_inclusive": 107,
+      "max_inclusive": 107
+    },
     "min_format": [
       107,
       1
