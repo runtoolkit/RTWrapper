@@ -40,3 +40,10 @@ jobs:
             **/build/test-results/
             **/build/gametest/
             **/build/libs/
+
+      - name: Upload JAR & ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          name: mod-and-datapack
+          path: |
+            **/build/libs/
