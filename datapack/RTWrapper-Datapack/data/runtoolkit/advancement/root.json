@@ -12,7 +12,7 @@
       "text": "Loaded Runtoolkit datapacks/modules",
       "color": "yellow"
     },
-    "background": "minecraft:textures/block/deepslate_tiles.png",
+    "background": "minecraft:block/deepslate_tiles",
     "frame": "task",
     "show_toast": false,
     "announce_to_chat": false,
