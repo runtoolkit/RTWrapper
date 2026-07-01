@@ -99,33 +99,123 @@ function rtwrapper:api/commands/give_item
 
 For `give_item`, `components:""` is allowed because it is concatenated directly to `item`, not appended as a separate trailing token.
 
-## Runtoolkit loaded-pack registry
+## Runtoolkit global datapack manager
 
-RTWrapper includes a shared `runtoolkit` namespace for Runtoolkit datapack discovery:
+RTWrapper includes a shared `runtoolkit` namespace that behaves like a lightweight manager for Runtoolkit datapacks/modules. It does not run vanilla `/datapack enable|disable`; instead it manages Runtoolkit pack registration, dependency checks, load/tick hooks, dynamic listing, and manager-level enable/disable/reload.
+
+Core files:
 
 ```text
 data/runtoolkit/function/core/load.mcfunction
 data/runtoolkit/function/core/tick.mcfunction
-data/runtoolkit/function/api/status.mcfunction
+data/runtoolkit/function/api/*.mcfunction
+data/runtoolkit/function/manager/*.mcfunction
 data/runtoolkit/advancement/root.json
 data/runtoolkit/advancement/packs/rtwrapper.json
 ```
 
-The visual registry uses advancements with the `minecraft:tick` trigger and does not revoke them. After `/reload`, open **Advancements > Runtoolkit** to see loaded Runtoolkit packs/modules.
+Function tags used by the manager:
 
-Status helper:
+```text
+#runtoolkit:register
+#runtoolkit:load
+#runtoolkit:tick
+#runtoolkit:list
+#runtoolkit:enable
+#runtoolkit:disable
+#runtoolkit:reload
+```
+
+The Minecraft `load` and `tick` tags call only the Runtoolkit manager entrypoints. The manager then dispatches the registered pack hooks.
+
+### Visual loaded-pack list
+
+The visual registry uses advancements with the `minecraft:tick` trigger and does not revoke them. After `/reload`, open **Advancements > Runtoolkit** to see loaded Runtoolkit packs/modules.
 
 ```mcfunction
 function runtoolkit:api/status
+function runtoolkit:api/list
 ```
 
-Other Runtoolkit datapacks can add themselves by including a child advancement under the shared namespace, for example:
+For console-friendly raw storage output:
+
+```mcfunction
+function runtoolkit:api/dump_registry
+```
+
+### Manager enable / disable / reload
+
+```mcfunction
+# Disable RTWrapper manager hooks
+data modify storage runtoolkit:api request set value {id:"rtwrapper"}
+function runtoolkit:api/disable
+
+# Enable RTWrapper manager hooks
+data modify storage runtoolkit:api request set value {id:"rtwrapper"}
+function runtoolkit:api/enable
+
+# Reload RTWrapper through the manager
+data modify storage runtoolkit:api request set value {id:"rtwrapper"}
+function runtoolkit:api/reload
+```
+
+Bulk hooks:
+
+```mcfunction
+function runtoolkit:api/disable_all
+function runtoolkit:api/enable_all
+function runtoolkit:api/reload_all
+```
+
+### Dependency management
+
+Packs define their metadata in their register hook and can provide a `check_dependencies` hook. Dependency checks should call `runtoolkit:api/require` for each dependency:
+
+```mcfunction
+data modify storage runtoolkit:api request set value {id:"required_pack_id"}
+function runtoolkit:api/require
+```
+
+`api/require` increments `#dependency_errors rtk.status` and appends to `storage runtoolkit:runtime missing_dependencies` when the dependency is not enabled.
+
+### How another Runtoolkit pack registers
+
+A Runtoolkit pack should add functions to the manager tags, for example:
+
+```json
+{
+  "values": [
+    "runtoolkit:packs/my_pack/register"
+  ]
+}
+```
+
+under:
+
+```text
+data/runtoolkit/tags/function/register.json
+```
+
+Recommended pack hook layout:
+
+```text
+data/runtoolkit/function/packs/my_pack/register.mcfunction
+data/runtoolkit/function/packs/my_pack/load.mcfunction
+data/runtoolkit/function/packs/my_pack/tick.mcfunction
+data/runtoolkit/function/packs/my_pack/list.mcfunction
+data/runtoolkit/function/packs/my_pack/enable.mcfunction
+data/runtoolkit/function/packs/my_pack/disable.mcfunction
+data/runtoolkit/function/packs/my_pack/reload.mcfunction
+data/runtoolkit/function/packs/my_pack/check_dependencies.mcfunction
+```
+
+The pack should also add a child advancement under the shared namespace:
 
 ```text
 data/runtoolkit/advancement/packs/my_pack.json
 ```
 
-Use this pattern:
+Use `minecraft:tick` as the trigger:
 
 ```json
 {

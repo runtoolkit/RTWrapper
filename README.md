@@ -4,14 +4,14 @@ RTWrapper is a Fabric mod + standalone datapack for Java Edition 26.2. The mod e
 
 ## Requirements
 
-| Component        | Version                          |
-|-------------------|-----------------------------------|
-| Minecraft         | 26.2 ("Chaos Cubed")              |
-| Java              | 25 (JDK 25 toolchain required)    |
-| Fabric Loader     | matches `fabric.mod.json` — verify against `build/libs` manifest before release |
-| Fabric API        | matches `fabric.mod.json`         |
-| Gradle            | 9.5+                              |
-| Pack format       | see `pack.mcmeta` in the datapack root — bump this in lockstep with `PACK_FORMAT` in `scripts/generate_wrappers.py` |
+| Component | Version |
+| --- | --- |
+| Minecraft | 26.2 ("Chaos Cubed") |
+| Java | 25 (JDK 25 toolchain required) |
+| Fabric Loader | matches `fabric.mod.json` — verify against `build/libs` manifest before release |
+| Fabric API | matches `fabric.mod.json` |
+| Gradle | 9.5+ |
+| Pack format | see `pack.mcmeta` in the datapack root — bump this in lockstep with `PACK_FORMAT` in `scripts/generate_wrappers.py` |
 
 RTWrapper is built and tested against 26.2 only. It has not been validated against 26.1 or 26.3 — see "Updating command wrappers" below before attempting cross-version use.
 
@@ -36,6 +36,7 @@ src/gametest/                     Fabric server GameTests
 4. Drop the jar into your `mods/` folder.
 5. Launch the game or server. The mod embeds its datapack automatically — no separate install step needed.
 6. In-world, run `/reload` once to ensure the embedded datapack functions are registered, then verify with:
+
    ```mcfunction
    function runtoolkit:api/status
    ```
@@ -46,6 +47,7 @@ src/gametest/                     Fabric server GameTests
 2. Place the zip into your world's `datapacks/` folder (`<world>/datapacks/RTWrapper-Datapack-<version>.zip`), or into `datapacks/` under your server root for a server.
 3. If the world is already running, run `/reload`. Otherwise this loads automatically on world start.
 4. Confirm the datapack is active — check **Advancements > Runtoolkit** in-game, or run:
+
    ```mcfunction
    function runtoolkit:api/status
    ```
@@ -80,19 +82,18 @@ data modify storage rtwrapper:api params set value {target:"@s",item:"minecraft:
 function rtwrapper:api/commands/give_item
 ```
 
-### `run` vs `enqueue`/autotick
+### `run` vs `enqueue` / autotick
 
 Two distinct execution paths exist — they are not interchangeable:
 
-- **`rtwrapper:api/run`** executes the request in `rtwrapper:api request` (or `rtwrapper:api params` for direct command wrappers) immediately, synchronously, in the current tick. Use this for one-off calls where you need the result available before your function continues.
-- **`rtwrapper:api/enqueue`** + autotick pushes the request onto a queue that is drained one action per tick by `rtwrapper:api/autotick/on`. Use this when issuing many commands in a burst (e.g. spawning many entities, batch scoreboard writes) where spreading load across ticks avoids a single-tick lag spike. The tradeoff is latency: an enqueued action is not guaranteed to execute in the same tick it was queued.
-
-Calling `rtwrapper:api/run` while autotick is on and the queue is non-empty performs a full immediate drain of the queue — see below.
+- **`rtwrapper:api/run`** executes the request in `rtwrapper:api request` immediately and drains the queue synchronously in the current tick. Use this for one-off calls where you need the result before your function continues.
+- **`rtwrapper:api/enqueue`** pushes the request onto a queue. With `rtwrapper:api/autotick/on`, the queue is processed one action per tick. Use this when issuing many commands in a burst where spreading load across ticks avoids a single-tick lag spike.
 
 Autotick usage:
 
 ```mcfunction
 function rtwrapper:api/autotick/on
+
 data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"queued hello"}}
 function rtwrapper:api/enqueue
 ```
@@ -101,15 +102,71 @@ Autotick processes one queued action per tick. Use `function rtwrapper:api/run` 
 
 See [`docs/API.md`](docs/API.md) for the full protocol and debug/silent controls.
 
+## Runtoolkit manager / loaded-pack discovery
+
+RTWrapper installs the shared `runtoolkit` namespace so Runtoolkit packs can be managed globally:
+
+```text
+data/runtoolkit/function/
+data/runtoolkit/tags/function/
+data/runtoolkit/advancement/root.json
+data/runtoolkit/advancement/packs/rtwrapper.json
+```
+
+After `/reload`, players get a visible **Advancements > Runtoolkit** tab via the `minecraft:tick` advancement trigger. This is intentionally not revoked, so it can be used as a stable visual list of loaded Runtoolkit datapacks without reading a long `/datapack list` output.
+
+Dynamic list/status:
+
+```mcfunction
+function runtoolkit:api/status
+function runtoolkit:api/list
+function runtoolkit:api/dump_registry
+```
+
+Manager controls for one pack:
+
+```mcfunction
+data modify storage runtoolkit:api request set value {id:"rtwrapper"}
+function runtoolkit:api/disable
+
+data modify storage runtoolkit:api request set value {id:"rtwrapper"}
+function runtoolkit:api/enable
+
+data modify storage runtoolkit:api request set value {id:"rtwrapper"}
+function runtoolkit:api/reload
+```
+
+Bulk manager hooks:
+
+```mcfunction
+function runtoolkit:api/disable_all
+function runtoolkit:api/enable_all
+function runtoolkit:api/reload_all
+```
+
+This manager does not call vanilla `/datapack disable|enable`; it controls Runtoolkit-managed registration/load/tick hooks. Functions still exist when a pack is manager-disabled, but the global manager stops running that pack's managed hooks.
+
+Other Runtoolkit projects can join the system by adding functions to these tags:
+
+```text
+#runtoolkit:register
+#runtoolkit:load
+#runtoolkit:tick
+#runtoolkit:list
+#runtoolkit:enable
+#runtoolkit:disable
+#runtoolkit:reload
+```
+
 ## `commands-26.2.json`
 
-This file is the single source of truth for what `generate_wrappers.py` emits — it is not just a manifest, it defines every wrapper function that exists under `rtwrapper:api/commands/`. Structure:
+This file is the single source of truth for what `generate_wrappers.py` emits:
 
-- Top-level: one entry per supported vanilla command (`tp`, `give`, `scoreboard`, etc.)
-- Each entry lists ordered parameter names for that command's positional wrapper variant(s) — this is what determines the exact param order you must supply in `params:{...}` when calling that command's `<command>_<N>` variant.
-- Named convenience wrappers (like `give_item`) are derived from this file per the macro syntax comment above their definition (e.g. `$give $(target) $(item)$(components) $(count)`).
+- Top-level command lists define supported vanilla commands (`tp`, `give`, `scoreboard`, etc.).
+- `command_params` lists ordered meaningful parameter names for each command.
+- Named convenience wrappers (like `give_item`) are generated alongside the vanilla command wrappers.
 
-If you add or change a command's parameters, edit this file first, then regenerate (see "Updating command wrappers" below) — hand-editing generated function files under `data/rtwrapper/function/api/commands/` directly will be overwritten on next generation.
+If you add or change a command's parameters, edit `scripts/generate_wrappers.py` first, regenerate, then validate. Hand-editing generated function files under `data/rtwrapper/function/api/commands/` directly will be overwritten on next generation.
 
 ## Build
 
@@ -121,10 +178,11 @@ python3 scripts/validate_datapack.py
 ```
 
 Build outputs:
+
 - Fabric mod jar: `build/libs/rtwrapper-<version>.jar`
 - Standalone datapack zip: `build/libs/RTWrapper-Datapack-<version>.zip`
 
-The `build` task also runs server GameTests through Fabric API's GameTest integration — these spin up a headless test server as part of the Gradle build itself (not a separate CI-only step) and will fail the build on test failure. Running `./gradlew build` locally runs the same GameTests that run in CI; there is no separate local/CI test split. To run only the GameTests without a full build, use:
+The `build` task also runs server GameTests through Fabric API's GameTest integration. These spin up a headless test server as part of the Gradle build and fail the build on test failure. To run only the GameTests without a full build, use:
 
 ```bash
 ./gradlew runGametest
@@ -142,11 +200,11 @@ python3 scripts/validate_datapack.py
 ./gradlew build
 ```
 
-Bumping `PACK_FORMAT` without updating every consuming datapack (including any `runtoolkit:` namespace dependents) will silently break `/reload` behavior on older packs — Minecraft does not always hard-error on a pack_format mismatch, it may just warn and load anyway with undefined wrapper behavior. Verify with `function runtoolkit:api/status` after any pack_format bump, don't assume silence means success.
+Bumping `PACK_FORMAT` without updating every consuming datapack (including any `runtoolkit:` namespace dependents) can break `/reload` behavior on older packs. Verify with `function runtoolkit:api/status` after any pack format bump; don't assume silence means success.
 
 ## License
 
-No license file is currently present in this repository. Until one is added, default copyright applies and no reuse, modification, or redistribution rights are granted to third parties beyond what's needed to view the source. If this repo is intended to be public or to accept external contributions, add a `LICENSE` file before relying on that assumption.
+MIT. See [`LICENSE`](LICENSE).
 
 ## Safety
 
