@@ -44,8 +44,9 @@ def main() -> None:
         load_json(path)
 
     pack_mcmeta = load_json(PACK / 'pack.mcmeta')
-    if pack_mcmeta.get('pack', {}).get('pack_format') != 104:
-        fail('pack.mcmeta pack_format must be 104 for the 26.2 target')
+    pack_section = pack_mcmeta.get('pack', {})
+    if pack_section.get('min_format') != 107 or pack_section.get('max_format') != 107:
+        fail('pack.mcmeta must declare min_format=107 and max_format=107 for the 26.2 target')
 
     required_tag_values = {
         'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
@@ -145,7 +146,7 @@ def main() -> None:
             if ADV_REVOKE_RE.search(line):
                 fail(f'advancement revoke is not allowed for loaded-pack registry at {rel}:{i}')
 
-    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, runtoolkit advancements use minecraft:tick, pack_format=104')
+    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, runtoolkit advancements use minecraft:tick, format=107')
 
 
 if __name__ == '__main__':
