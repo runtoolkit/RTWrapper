@@ -11,11 +11,13 @@
             {
               "text": "macro-command wrapper API",
               "color": "green",
-              "italic": false
+              "italic": false,
+              "underlined": false
             }
           ],
           "color": "green",
-          "italic": false
+          "italic": false,
+          "underlined": false
         }
       ],
       "color": "yellow",
