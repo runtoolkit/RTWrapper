@@ -45,8 +45,8 @@ def main() -> None:
 
     pack_mcmeta = load_json(PACK / 'pack.mcmeta')
     pack_section = pack_mcmeta.get('pack', {})
-    if pack_section.get('min_format') != 107 or pack_section.get('max_format') != 107:
-        fail('pack.mcmeta must declare min_format=107 and max_format=107 for the 26.2 target')
+    if pack_section.get('min_format') != [107, 1] or pack_section.get('max_format') != [107, 1]:
+        fail('pack.mcmeta must declare min_format=[107, 1] and max_format=[107, 1] for the 26.2 target')
 
     required_tag_values = {
         'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
