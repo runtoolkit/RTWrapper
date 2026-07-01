@@ -4,6 +4,7 @@ scoreboard objectives add rtw.config dummy
 scoreboard objectives add rtw.status dummy
 scoreboard objectives add rtw.test dummy
 scoreboard objectives add rtw.temp dummy
+scoreboard objectives add RTWrapper trigger
 
 execute unless score #debug rtw.config matches 0.. run scoreboard players set #debug rtw.config 0
 execute unless score #silent rtw.config matches 0.. run scoreboard players set #silent rtw.config 1
@@ -20,7 +21,11 @@ execute unless data storage rtwrapper:runtime queue run data modify storage rtwr
 execute unless data storage rtwrapper:runtime current run data modify storage rtwrapper:runtime current set value {}
 execute unless data storage rtwrapper:runtime selector run data modify storage rtwrapper:runtime selector set value {found:0b}
 execute unless data storage rtwrapper:settings datapack run data modify storage rtwrapper:settings datapack set value {manager:"runtoolkit"}
+execute unless data storage rtwrapper:ui menu run data modify storage rtwrapper:ui menu set value {target:"@s",item:"minecraft:stone",count:"1",x:"0",y:"80",z:"0",selector:"@s",batch_note:"RTWrapper batch",safe:"1b"}
+execute unless data storage rtwrapper:ui selector run data modify storage rtwrapper:ui selector set value {value:"@s"}
+execute unless data storage rtwrapper:settings menu run data modify storage rtwrapper:settings menu set value {mode:"dialog",columns:2}
 execute unless data storage rtwrapper:api request run data modify storage rtwrapper:api request set value {}
 execute unless data storage rtwrapper:api params run data modify storage rtwrapper:api params set value {}
 
+scoreboard players enable @a RTWrapper
 execute if score #debug rtw.config matches 1.. run tellraw @a[tag=rtwrapper.debug] [{"text":"[RTWrapper] load complete","color":"gold"}]

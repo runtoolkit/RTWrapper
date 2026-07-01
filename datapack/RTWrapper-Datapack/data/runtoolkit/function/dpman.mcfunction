@@ -1,7 +1,5 @@
-# Dialog-free Runtoolkit datapack manager entrypoint.
-tellraw @s [{"text":"[Runtoolkit] Datapack Manager","color":"gold","bold":true}]
-function runtoolkit:api/list
-tellraw @s [{"text":"Commands:","color":"yellow"}]
-tellraw @s [{"text":" data modify storage runtoolkit:api request set value {id:\"rtwrapper\"}","color":"gray"}]
-tellraw @s [{"text":" function runtoolkit:api/enable | disable | reload","color":"gray"}]
-tellraw @s [{"text":" function runtoolkit:api/reload_all / enable_all / disable_all / dump_registry","color":"gray"}]
+# Runtoolkit datapack manager menu. Dialog mode needs rtwrapper.testMode; otherwise chat fallback.
+execute unless entity @s[tag=rtwrapper.testMode] run function runtoolkit:api/list
+execute unless entity @s[tag=rtwrapper.testMode] run tellraw @s [{"text":"[Runtoolkit] Use function rtwrapper:api/testmode/on for dialog menu.","color":"yellow"}]
+execute if entity @s[tag=rtwrapper.testMode] run dialog show @s {type:"minecraft:multi_action",title:{text:"Runtoolkit Manager",color:"gold",bold:true},body:[{type:"minecraft:plain_message",contents:{text:"All actions dispatch through RTWrapper trigger values."}}],inputs:[{type:"minecraft:single_option",key:"dp_action",label:{text:"Manager action"},options:[{id:"-027",display:{text:"List packs"},initial:true},{id:"-028",display:{text:"Dump registry"}},{id:"-024",display:{text:"Enable RTWrapper"}},{id:"-025",display:{text:"Disable RTWrapper"}},{id:"-026",display:{text:"Reload RTWrapper"}},{id:"-029",display:{text:"Reload all"}}]}],columns:2,actions:[{label:{text:"Submit selected option",color:"green"},action:{type:"dynamic/run_command",template:"trigger RTWrapper set $(dp_action)"}},{label:{text:"List packs",color:"yellow"},action:{type:"run_command",command:"trigger RTWrapper set 27"}},{label:{text:"Dump registry",color:"gray"},action:{type:"run_command",command:"trigger RTWrapper set 28"}},{label:{text:"Enable RTWrapper",color:"green"},action:{type:"run_command",command:"trigger RTWrapper set 24"}},{label:{text:"Disable RTWrapper",color:"red"},action:{type:"run_command",command:"trigger RTWrapper set 25"}},{label:{text:"Reload RTWrapper",color:"aqua"},action:{type:"run_command",command:"trigger RTWrapper set 26"}},{label:{text:"Reload all",color:"light_purple"},action:{type:"run_command",command:"trigger RTWrapper set 29"}},{label:{text:"Back",color:"aqua"},action:{type:"run_command",command:"trigger RTWrapper set 1"}}],exit_action:{label:{text:"Close"}}}
+execute if entity @s[tag=rtwrapper.testMode] run scoreboard players set @s rtw.temp 1

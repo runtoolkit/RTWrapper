@@ -17,13 +17,13 @@ data modify storage core:selector result set value {valid:0b,kind:"rejected",rea
 execute if entity @s run scoreboard players set @s rtw.temp 0
 
 # Exact allowed selector forms.
-execute if data storage core:selector input {value:"@s"} run function core:selector/private/accept_self
-execute if data storage core:selector input {value:"@a[limit=1]"} run function core:selector/private/accept_limited_all
-execute if data storage core:selector input {value:"@a[sort=nearest,limit=1]"} run function core:selector/private/accept_limited_all
-execute if data storage core:selector input {value:"@a[limit=1,sort=nearest]"} run function core:selector/private/accept_limited_all
-execute if data storage core:selector input {value:"@e[type=player,limit=1]"} run function core:selector/private/accept_limited_entity_player
-execute if data storage core:selector input {value:"@e[type=player,sort=nearest,limit=1]"} run function core:selector/private/accept_limited_entity_player
-execute if data storage core:selector input {value:"@e[type=player,limit=1,sort=nearest]"} run function core:selector/private/accept_limited_entity_player
+execute if data storage core:selector input{value:"@s"} run function core:selector/private/accept_self
+execute if data storage core:selector input{value:"@a[limit=1]"} run function core:selector/private/accept_limited_all
+execute if data storage core:selector input{value:"@a[sort=nearest,limit=1]"} run function core:selector/private/accept_limited_all
+execute if data storage core:selector input{value:"@a[limit=1,sort=nearest]"} run function core:selector/private/accept_limited_all
+execute if data storage core:selector input{value:"@e[type=player,limit=1]"} run function core:selector/private/accept_limited_entity_player
+execute if data storage core:selector input{value:"@e[type=player,sort=nearest,limit=1]"} run function core:selector/private/accept_limited_entity_player
+execute if data storage core:selector input{value:"@e[type=player,limit=1,sort=nearest]"} run function core:selector/private/accept_limited_entity_player
 execute if score #valid core.selector matches 1.. run return 1
 
 # Player-name validation needs StringLib. If StringLib is not detected, fail safely.

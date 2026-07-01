@@ -151,6 +151,17 @@ function runtoolkit:api/dump_registry
 function runtoolkit:dpman
 ```
 
+Manager state is stored under `storage runtoolkit:state packs.rtwrapper` and refreshed into `storage runtoolkit:runtime list.rtwrapper` by the list hook. The pack hooks are stateful:
+
+- `register` writes registry + state metadata.
+- `check_dependencies` probes StringLib and records missing dependencies.
+- `load` runs `rtwrapper:core/load`, updates loaded/status fields, and keeps dependency warnings separate.
+- `enable` sets manager enabled state and runs load.
+- `disable` clears manager loaded state, disables RTWrapper autotick, and clears the runtime queue.
+- `reload` re-registers and reloads state.
+- `tick` increments tick counters and runs `rtwrapper:core/tick` only when enabled + loaded.
+- `list` refreshes `runtoolkit:runtime list.rtwrapper` before printing.
+
 Manager enable/disable/reload controls Runtoolkit hooks, not vanilla `/datapack enable|disable`:
 
 ```mcfunction
@@ -164,7 +175,31 @@ data modify storage runtoolkit:api request set value {id:"rtwrapper"}
 function runtoolkit:api/reload
 ```
 
-There is no RTWrapper dialog UI, no `rtwrapper.testMode` tag, and no `RTWrapper` trigger objective.
+## Trigger menus
+
+The menu system is back and is gated by `rtwrapper.testMode` so normal gameplay is not affected.
+
+```mcfunction
+function rtwrapper:api/testmode/on
+trigger RTWrapper set 1
+```
+
+Trigger values:
+
+```mcfunction
+trigger RTWrapper set 1  # RTWrapper main menu
+trigger RTWrapper set 2  # Run current request
+trigger RTWrapper set 3  # List wrappers in chat
+trigger RTWrapper set 4  # Runtoolkit manager menu
+trigger RTWrapper set 5  # Batch request menu
+trigger RTWrapper set 6  # core:selector tools menu
+```
+
+The menus use `rtw.temp` as success/cancel flag and use the current `core:selector/detect`, `runSafeMode`, and batch request APIs. The dialogs use input controls (`text`, `boolean`, `single_option`). Storage-backed menus render current defaults through macro functions, and every dialog action dispatches through `trigger RTWrapper set ...`; option ids use the `-0<number>` form such as `-01`, `-010`, `-024`. Disable menu access:
+
+```mcfunction
+function rtwrapper:api/testmode/off
+```
 
 ## Build
 

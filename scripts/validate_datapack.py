@@ -87,17 +87,30 @@ def main() -> None:
     core_load = (PACK / 'data' / 'rtwrapper' / 'function' / 'core' / 'load.mcfunction').read_text(encoding='utf-8')
     if 'scoreboard objectives add rtw.temp dummy' not in core_load:
         fail('rtwrapper:core/load must create rtw.temp')
-    if 'scoreboard objectives add RTWrapper trigger' in core_load:
-        fail('RTWrapper trigger objective must not be present after removing in-game trigger UI')
+    if 'scoreboard objectives add RTWrapper trigger' not in core_load:
+        fail('rtwrapper:core/load must create RTWrapper trigger for restored menu system')
 
     core_tick = (PACK / 'data' / 'rtwrapper' / 'function' / 'core' / 'tick.mcfunction').read_text(encoding='utf-8')
-    if 'rtwrapper:trigger/' in core_tick or 'scores={RTWrapper=' in core_tick:
-        fail('rtwrapper:core/tick must not process removed RTWrapper trigger UI')
+    if 'rtwrapper:trigger/handle' not in core_tick or 'scores={RTWrapper=1..}' not in core_tick:
+        fail('rtwrapper:core/tick must process RTWrapper trigger menu actions')
 
-    for forbidden in ['dialog show', 'rtwrapper.testMode', 'trigger RTWrapper', 'RTWrapper trigger']:
-        for path in PACK.rglob('*.mcfunction'):
-            if forbidden in path.read_text(encoding='utf-8'):
-                fail(f'forbidden removed UI/testMode token {forbidden!r} in {path.relative_to(ROOT)}')
+    for function in [
+        PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'testmode' / 'on.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'testmode' / 'off.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'trigger' / 'handle.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'trigger' / 'run_request.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'open.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'settings.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'batch.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'selector.mcfunction',
+        PACK / 'data' / 'runtoolkit' / 'function' / 'dpman.mcfunction',
+        PACK / 'data' / 'core' / 'function' / 'selector' / 'detect.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'run_many.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'enqueue_many.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'condition' / 'check_current.mcfunction',
+    ]:
+        if not function.exists():
+            fail(f'missing restored menu/selector/batch function {function.relative_to(ROOT)}')
 
     selector_detect = (PACK / 'data' / 'core' / 'function' / 'selector' / 'detect.mcfunction').read_text(encoding='utf-8')
     for forbidden_selector in ['"@p"', '"@r"']:
@@ -107,6 +120,35 @@ def main() -> None:
         if required_selector not in selector_detect:
             fail(f'core selector detect missing {required_selector}')
 
+    legacy_selector_namespace = ''.join(['c', 'r', 'e'])
+    for path in (PACK / 'data').rglob('*'):
+        if path.is_file() and len(path.parts) >= 2 and path.parts[-3:-1] == ('data', legacy_selector_namespace):
+            fail(f'legacy selector namespace must not exist; use core namespace: {path.relative_to(ROOT)}')
+
+    menu_files = [
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'open' / 'render.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'settings.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'batch.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'ui' / 'selector' / 'render.mcfunction',
+        PACK / 'data' / 'runtoolkit' / 'function' / 'dpman.mcfunction',
+    ]
+    for menu_file in menu_files:
+        if not menu_file.exists():
+            fail(f'missing dialog menu file {menu_file.relative_to(ROOT)}')
+        text = menu_file.read_text(encoding='utf-8')
+        if 'inputs:[' not in text:
+            fail(f'{menu_file.relative_to(ROOT)} must use dialog inputs')
+        if 'type:"minecraft:single_option"' not in text:
+            fail(f'{menu_file.relative_to(ROOT)} must expose single_option input')
+        if 'id:"-0' not in text:
+            fail(f'{menu_file.relative_to(ROOT)} options must use -0<number> ids')
+        if 'dynamic/run_command' not in text:
+            fail(f'{menu_file.relative_to(ROOT)} must submit selected option with dynamic/run_command')
+        if 'trigger RTWrapper set $(' not in text:
+            fail(f'{menu_file.relative_to(ROOT)} dynamic submit must call trigger RTWrapper')
+        if 'action:{type:"run_command",command:"function ' in text:
+            fail(f'{menu_file.relative_to(ROOT)} dialog actions must not run functions directly; use trigger')
+
     rtw_register = (PACK / 'data' / 'runtoolkit' / 'function' / 'packs' / 'rtwrapper' / 'register.mcfunction').read_text(encoding='utf-8')
     if 'dependencies:["stringlib"]' not in rtw_register:
         fail('RTWrapper manager registration must declare StringLib dependency')
@@ -114,6 +156,26 @@ def main() -> None:
     rtw_check = (PACK / 'data' / 'runtoolkit' / 'function' / 'packs' / 'rtwrapper' / 'check_dependencies.mcfunction').read_text(encoding='utf-8')
     if 'stringlib:util/find' not in rtw_check:
         fail('RTWrapper dependency check must probe StringLib')
+
+    hook_dir = PACK / 'data' / 'runtoolkit' / 'function' / 'packs' / 'rtwrapper'
+    hook_requirements = {
+        'register.mcfunction': ['runtoolkit:state packs.rtwrapper', 'runtoolkit:registry packs.rtwrapper', 'scoreboard players set rtwrapper rtk.registered'],
+        'check_dependencies.mcfunction': ['runtoolkit:state packs.rtwrapper.dependencies', 'stringlib:util/find', 'missing_dependencies'],
+        'load.mcfunction': ['runtoolkit:state packs.rtwrapper.status', 'rtwrapper:core/load', 'scoreboard players set rtwrapper rtk.loaded'],
+        'enable.mcfunction': ['runtoolkit:state packs.rtwrapper.enabled set value 1b', 'runtoolkit:packs/rtwrapper/load'],
+        'disable.mcfunction': ['runtoolkit:state packs.rtwrapper.enabled set value 0b', 'rtwrapper:runtime queue set value []', 'config.auto_tick set value 0b'],
+        'reload.mcfunction': ['runtoolkit:state packs.rtwrapper.last_action set value "reload"', 'runtoolkit:packs/rtwrapper/register', 'runtoolkit:packs/rtwrapper/load'],
+        'tick.mcfunction': ['runtoolkit:state packs.rtwrapper.ticks', 'rtwrapper:core/tick'],
+        'list.mcfunction': ['runtoolkit:runtime list.rtwrapper', 'display_status'],
+    }
+    for file_name, required_fragments in hook_requirements.items():
+        hook_path = hook_dir / file_name
+        if not hook_path.exists():
+            fail(f'missing RTWrapper manager hook {hook_path.relative_to(ROOT)}')
+        hook_text = hook_path.read_text(encoding='utf-8')
+        for fragment in required_fragments:
+            if fragment not in hook_text:
+                fail(f'{hook_path.relative_to(ROOT)} is not functional enough; missing {fragment!r}')
 
     api_run = (PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'run.mcfunction').read_text(encoding='utf-8')
     if 'runSafeMode' not in api_run or 'rtwrapper:core/run/run_next' not in api_run:
@@ -214,7 +276,7 @@ def main() -> None:
             if MISSING_STORAGE_TEST_PATH_RE.search(line):
                 fail(f'missing storage path before run at {rel}:{i}')
 
-    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, no dialog/testMode, format=107')
+    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, menus restored, core selector, format=107')
 
 
 if __name__ == '__main__':

@@ -105,6 +105,18 @@ Manager hooks:
 #runtoolkit:reload
 ```
 
+RTWrapper's manager hooks are stateful and do more than print text. They maintain:
+
+```text
+storage runtoolkit:state packs.rtwrapper
+storage runtoolkit:runtime list.rtwrapper
+storage runtoolkit:runtime missing_dependencies
+scoreboard rtk.enabled / rtk.loaded / rtk.status
+```
+
+`disable` also disables `#auto_tick` and clears `storage rtwrapper:runtime queue` so disabled manager hooks cannot continue processing queued work.
+
+
 Enable/disable/reload one managed pack:
 
 ```mcfunction
@@ -127,6 +139,28 @@ function runtoolkit:api/require
 
 The Runtoolkit advancement registry uses `minecraft:tick` and is never revoked.
 
-## Removed UI systems
+## Restored trigger menus
 
-RTWrapper no longer provides the experimental dialog UI, `rtwrapper.testMode`, or the `RTWrapper` trigger objective. Use command functions directly.
+RTWrapper provides an opt-in menu system gated behind `rtwrapper.testMode`.
+
+```mcfunction
+function rtwrapper:api/testmode/on
+trigger RTWrapper set 1
+```
+
+Trigger values:
+
+```mcfunction
+trigger RTWrapper set 1  # RTWrapper main menu
+trigger RTWrapper set 2  # Run current request
+trigger RTWrapper set 3  # List wrappers in chat
+trigger RTWrapper set 4  # Runtoolkit manager menu
+trigger RTWrapper set 5  # Batch request menu
+trigger RTWrapper set 6  # core:selector tools menu
+```
+
+The menus use inline `dialog show` screens and are wired to current APIs: `core:selector/detect`, `rtwrapper:api/run_many`, `runSafeMode`, and `runtoolkit:dpman`. The dialogs use input controls (`text`, `boolean`, `single_option`). Storage-backed menus render current defaults through macro functions, and every dialog action dispatches through `trigger RTWrapper set ...`; option ids use the `-0<number>` form such as `-01`, `-010`, `-024`. Disable access:
+
+```mcfunction
+function rtwrapper:api/testmode/off
+```
