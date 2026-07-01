@@ -1,6 +1,6 @@
 {
   "target": "Java Edition 26.2",
-  "pack_format": 104,
+  "pack_format": 107,
   "namespace": "rtwrapper",
   "variant_dispatch": true,
   "command_params": {
