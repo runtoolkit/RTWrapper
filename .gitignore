@@ -24,3 +24,12 @@ run-*/
 # OS
 .DS_Store
 Thumbs.db
+
+# Minecraft / Datapack files
+!Datapack/
+!datapack/RTWrapper-Datapack/
+!datapack/commands-26.2.json
+!src/main/java/com/runtoolkit/rtwrapper/run/
+!src/main/resources/data/*/function/**/run/
+!scripts/run/
+!gradle/wrapper/gradle-wrapper.jar
