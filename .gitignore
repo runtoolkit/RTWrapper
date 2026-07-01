@@ -24,7 +24,3 @@ run-*/
 # OS
 .DS_Store
 Thumbs.db
-
-# Datapack files
-!datapack/RTWrapper-Datapack/data/rtwrapper/function/core/run
-!!datapack/RTWrapper-Datapack

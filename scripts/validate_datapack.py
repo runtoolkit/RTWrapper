@@ -12,6 +12,7 @@ META = ROOT / 'datapack' / 'commands-26.2.json'
 RESOURCE_RE = re.compile(r'^[a-z0-9_./-]+$')
 PARAM_RE = re.compile(r'^[a-z][a-z0-9_]*$')
 GENERIC_RE = re.compile(r'\b(?:arg|p)\d+\b')
+ADV_REVOKE_RE = re.compile(r'(^|\s)advancement\s+revoke(\s|$)')
 
 
 def fail(message: str) -> None:
@@ -26,18 +27,44 @@ def load_json(path: Path):
         fail(f'{path.relative_to(ROOT)} is not valid JSON: {exc}')
 
 
+def advancement_uses_tick(path: Path) -> bool:
+    data = load_json(path)
+    criteria = data.get('criteria')
+    if not isinstance(criteria, dict):
+        return False
+    return any(isinstance(value, dict) and value.get('trigger') == 'minecraft:tick' for value in criteria.values())
+
+
 def main() -> None:
     if not PACK.exists():
         fail('datapack/RTWrapper-Datapack is missing')
+
+    # Validate every datapack JSON file early, including advancements and tags.
+    for path in PACK.rglob('*.json'):
+        load_json(path)
 
     pack_mcmeta = load_json(PACK / 'pack.mcmeta')
     if pack_mcmeta.get('pack', {}).get('pack_format') != 104:
         fail('pack.mcmeta pack_format must be 104 for the 26.2 target')
 
-    for tag in ['load', 'tick']:
+    required_tag_values = {
+        'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
+        'tick': {'rtwrapper:core/tick', 'runtoolkit:core/tick'},
+    }
+    for tag, required_values in required_tag_values.items():
         data = load_json(PACK / 'data' / 'minecraft' / 'tags' / 'function' / f'{tag}.json')
-        if not data.get('values'):
-            fail(f'{tag}.json has no values')
+        values = set(data.get('values', []))
+        if not required_values.issubset(values):
+            fail(f'{tag}.json missing values: {sorted(required_values - values)}')
+
+    for advancement in [
+        PACK / 'data' / 'runtoolkit' / 'advancement' / 'root.json',
+        PACK / 'data' / 'runtoolkit' / 'advancement' / 'packs' / 'rtwrapper.json',
+    ]:
+        if not advancement.exists():
+            fail(f'missing Runtoolkit advancement {advancement.relative_to(ROOT)}')
+        if not advancement_uses_tick(advancement):
+            fail(f'{advancement.relative_to(ROOT)} must use trigger minecraft:tick')
 
     metadata = load_json(META)
     if not metadata.get('variant_dispatch'):
@@ -115,8 +142,10 @@ def main() -> None:
                 fail(f'trailing whitespace at {rel}:{i}')
             if line.startswith('/'):
                 fail(f'mcfunction lines must not start with / at {rel}:{i}')
+            if ADV_REVOKE_RE.search(line):
+                fail(f'advancement revoke is not allowed for loaded-pack registry at {rel}:{i}')
 
-    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, pack_format=104')
+    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, runtoolkit advancements use minecraft:tick, pack_format=104')
 
 
 if __name__ == '__main__':

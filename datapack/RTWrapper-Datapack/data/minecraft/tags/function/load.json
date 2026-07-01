@@ -1,5 +1,6 @@
 {
   "values": [
-    "rtwrapper:core/load"
+    "rtwrapper:core/load",
+    "runtoolkit:core/load"
   ]
 }

@@ -41,7 +41,36 @@ data modify storage rtwrapper:api params set value {target:"@s",item:"minecraft:
 function rtwrapper:api/commands/give_item
 ```
 
+Autotick usage:
+
+```mcfunction
+function rtwrapper:api/autotick/on
+
+data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"queued hello"}}
+function rtwrapper:api/enqueue
+```
+
+Autotick processes one queued action per tick. Use `function rtwrapper:api/run` only for immediate full queue drain.
+
 See [`docs/API.md`](docs/API.md) for the full protocol and debug/silent controls.
+
+## Loaded-pack discovery
+
+RTWrapper also installs the shared `runtoolkit` namespace:
+
+```text
+data/runtoolkit/function/...
+data/runtoolkit/advancement/root.json
+data/runtoolkit/advancement/packs/rtwrapper.json
+```
+
+After `/reload`, players get a visible **Advancements > Runtoolkit** tab via the `minecraft:tick` advancement trigger. This is intentionally not revoked, so it can be used as a stable visual list of loaded Runtoolkit datapacks without reading a long `/datapack list` output.
+
+Quick check:
+
+```mcfunction
+function runtoolkit:api/status
+```
 
 ## Build
 
