@@ -49,14 +49,33 @@ def main() -> None:
         fail('pack.mcmeta must declare min_format=[107, 1] and max_format=[107, 1] for the 26.2 target')
 
     required_tag_values = {
-        'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
-        'tick': {'rtwrapper:core/tick', 'runtoolkit:core/tick'},
+        'load': {'runtoolkit:core/load'},
+        'tick': {'runtoolkit:core/tick'},
     }
     for tag, required_values in required_tag_values.items():
         data = load_json(PACK / 'data' / 'minecraft' / 'tags' / 'function' / f'{tag}.json')
         values = set(data.get('values', []))
         if not required_values.issubset(values):
             fail(f'{tag}.json missing values: {sorted(required_values - values)}')
+
+    for tag in ['register', 'load', 'tick', 'list', 'enable', 'disable', 'reload']:
+        tag_path = PACK / 'data' / 'runtoolkit' / 'tags' / 'function' / f'{tag}.json'
+        if not tag_path.exists():
+            fail(f'missing runtoolkit function tag {tag_path.relative_to(ROOT)}')
+        values = set(load_json(tag_path).get('values', []))
+        expected_value = f'runtoolkit:packs/rtwrapper/{tag}'
+        if expected_value not in values:
+            fail(f'{tag_path.relative_to(ROOT)} missing {expected_value}')
+
+    for function in [
+        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'enable.mcfunction',
+        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'disable.mcfunction',
+        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'reload.mcfunction',
+        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'list.mcfunction',
+        PACK / 'data' / 'runtoolkit' / 'function' / 'manager' / 'require.mcfunction',
+    ]:
+        if not function.exists():
+            fail(f'missing Runtoolkit manager function {function.relative_to(ROOT)}')
 
     for advancement in [
         PACK / 'data' / 'runtoolkit' / 'advancement' / 'root.json',
