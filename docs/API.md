@@ -99,6 +99,61 @@ function rtwrapper:api/commands/give_item
 
 For `give_item`, `components:""` is allowed because it is concatenated directly to `item`, not appended as a separate trailing token.
 
+## Trigger and dialog UI
+
+RTWrapper creates two trigger-related objectives:
+
+```mcfunction
+scoreboard objectives add rtw.temp dummy
+scoreboard objectives add RTWrapper trigger
+```
+
+`rtw.temp` is the temporary success/cancel flag used by UI and trigger functions:
+
+- `1` = accepted/success
+- `0` = canceled/error
+
+The in-game UI is intentionally gated behind the `rtwrapper.testMode` tag. This keeps experimental dialog features out of normal gameplay.
+
+Enable test mode for yourself:
+
+```mcfunction
+function rtwrapper:api/testmode/on
+```
+
+Trigger values:
+
+```mcfunction
+trigger RTWrapper set 1  # Open inline dialog UI
+trigger RTWrapper set 2  # Run current rtwrapper:api request with rtwrapper:api/run
+trigger RTWrapper set 3  # List command wrappers in chat
+trigger RTWrapper set 4  # Open runtoolkit:dpman
+```
+
+Disable test mode:
+
+```mcfunction
+function rtwrapper:api/testmode/off
+```
+
+The dialog UI uses inline SNBT with `/dialog show @s {...}`; no dialog JSON file is required for the generated menus. It uses `minecraft:multi_action` dialogs and button actions such as `run_command`, `suggest_command`, `copy_to_clipboard`, and nested menu functions.
+
+## StringLib selector detection
+
+RTWrapper declares a managed dependency on [StringLib](https://github.com/CMDred/StringLib) and probes it with `stringlib:util/find`. Selector detection helpers search a string for vanilla selector tokens like `@p`, `@a`, `@s`, `@r`, and `@e`.
+
+Example:
+
+```mcfunction
+data modify storage rtwrapper:api string.value set value "@p"
+function rtwrapper:string/detect_selector
+```
+
+Output is stored in `@s rtw.temp` and `storage rtwrapper:runtime selector.found`:
+
+- `rtw.temp = 1`, `found:1b` means a selector token was detected.
+- `rtw.temp = 0`, `found:0b` means no selector token was detected or StringLib was unavailable.
+
 ## Runtoolkit global datapack manager
 
 RTWrapper includes a shared `runtoolkit` namespace that behaves like a lightweight manager for Runtoolkit datapacks/modules. It does not run vanilla `/datapack enable|disable`; instead it manages Runtoolkit pack registration, dependency checks, load/tick hooks, dynamic listing, and manager-level enable/disable/reload.

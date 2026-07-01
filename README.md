@@ -15,6 +15,8 @@ RTWrapper is a Fabric mod + standalone datapack for Java Edition 26.2. The mod e
 
 RTWrapper is built and tested against 26.2 only. It has not been validated against 26.1 or 26.3 — see "Updating command wrappers" below before attempting cross-version use.
 
+Optional-but-managed dependency: [StringLib](https://github.com/CMDred/StringLib). RTWrapper's selector-detection helpers and dependency manager probe `stringlib:util/find`; install StringLib if you want those helpers and a clean dependency status.
+
 ## Layout
 
 ```text
@@ -72,6 +74,36 @@ function rtwrapper:api/commands/give
 # /scoreboard players set #smoke rtw.test 1
 data modify storage rtwrapper:api request set value {cmd:"scoreboard",params:{category:"players",action:"set",subject:"#smoke",objective:"rtw.test",value:"1"}}
 function rtwrapper:api/run
+```
+
+## In-game trigger UI (testMode)
+
+RTWrapper creates these objectives on load:
+
+```mcfunction
+scoreboard objectives add rtw.temp dummy
+scoreboard objectives add RTWrapper trigger
+```
+
+`rtw.temp` is used by temporary UI/trigger systems: `1` means accepted/success, `0` means canceled/error. In-game trigger UI is gated behind the `rtwrapper.testMode` tag. Enable it per player:
+
+```mcfunction
+function rtwrapper:api/testmode/on
+```
+
+Then use:
+
+```mcfunction
+trigger RTWrapper set 1  # Open RTWrapper dialog
+trigger RTWrapper set 2  # Run current rtwrapper:api request via rtwrapper:api/run
+trigger RTWrapper set 3  # List command wrappers in chat
+trigger RTWrapper set 4  # Open runtoolkit:dpman
+```
+
+Disable test mode:
+
+```mcfunction
+function rtwrapper:api/testmode/off
 ```
 
 Named convenience wrapper example:
