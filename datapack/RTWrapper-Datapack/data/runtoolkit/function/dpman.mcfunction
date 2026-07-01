@@ -1,4 +1,7 @@
-# Runtoolkit datapack manager dialog. In-game dialog is testMode-only.
-execute unless entity @s[tag=rtwrapper.testMode] run function runtoolkit:api/list
-execute if entity @s[tag=rtwrapper.testMode] run dialog show @s {type:"minecraft:multi_action",title:{text:"Runtoolkit Datapack Manager",color:"gold",bold:true},body:[{type:"minecraft:plain_message",contents:{text:"Manage Runtoolkit-registered datapacks. This does not run vanilla /datapack enable|disable; it controls manager hooks."}}],columns:2,actions:[{label:{text:"List packs",color:"yellow"},action:{type:"run_command",command:"function runtoolkit:api/list"}},{label:{text:"Dump registry",color:"gray"},action:{type:"run_command",command:"function runtoolkit:api/dump_registry"}},{label:{text:"Enable RTWrapper",color:"green"},action:{type:"run_command",command:"function runtoolkit:dpman/enable_rtwrapper"}},{label:{text:"Disable RTWrapper",color:"red"},action:{type:"run_command",command:"function runtoolkit:dpman/disable_rtwrapper"}},{label:{text:"Reload RTWrapper",color:"aqua"},action:{type:"run_command",command:"function runtoolkit:dpman/reload_rtwrapper"}},{label:{text:"Reload all",color:"light_purple"},action:{type:"run_command",command:"function runtoolkit:api/reload_all"}},{label:{text:"Back to RTWrapper",color:"aqua"},action:{type:"run_command",command:"trigger RTWrapper set 1"}}],exit_action:{label:{text:"Close"}}}
-execute if entity @s[tag=rtwrapper.testMode] run scoreboard players set @s rtw.temp 1
+# Dialog-free Runtoolkit datapack manager entrypoint.
+tellraw @s [{"text":"[Runtoolkit] Datapack Manager","color":"gold","bold":true}]
+function runtoolkit:api/list
+tellraw @s [{"text":"Commands:","color":"yellow"}]
+tellraw @s [{"text":" data modify storage runtoolkit:api request set value {id:\"rtwrapper\"}","color":"gray"}]
+tellraw @s [{"text":" function runtoolkit:api/enable | disable | reload","color":"gray"}]
+tellraw @s [{"text":" function runtoolkit:api/reload_all / enable_all / disable_all / dump_registry","color":"gray"}]

@@ -13,6 +13,8 @@ RESOURCE_RE = re.compile(r'^[a-z0-9_./-]+$')
 PARAM_RE = re.compile(r'^[a-z][a-z0-9_]*$')
 GENERIC_RE = re.compile(r'\b(?:arg|p)\d+\b')
 ADV_REVOKE_RE = re.compile(r'(^|\s)advancement\s+revoke(\s|$)')
+MISSING_STORAGE_MODIFY_PATH_RE = re.compile(r'(^|\s)data\s+modify\s+storage\s+\S+\s+set\s+value(\s|$)')
+MISSING_STORAGE_TEST_PATH_RE = re.compile(r'(^|\s)data\s+storage\s+\S+\s+run(\s|$)')
 
 
 def fail(message: str) -> None:
@@ -23,7 +25,7 @@ def fail(message: str) -> None:
 def load_json(path: Path):
     try:
         return json.loads(path.read_text(encoding='utf-8'))
-    except Exception as exc:  # noqa: BLE001 - validator should print concise failures
+    except Exception as exc:
         fail(f'{path.relative_to(ROOT)} is not valid JSON: {exc}')
 
 
@@ -39,7 +41,6 @@ def main() -> None:
     if not PACK.exists():
         fail('datapack/RTWrapper-Datapack is missing')
 
-    # Validate every datapack JSON file early, including advancements and tags.
     for path in PACK.rglob('*.json'):
         load_json(path)
 
@@ -67,15 +68,59 @@ def main() -> None:
         if expected_value not in values:
             fail(f'{tag_path.relative_to(ROOT)} missing {expected_value}')
 
-    for function in [
+    required_functions = [
         PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'enable.mcfunction',
         PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'disable.mcfunction',
         PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'reload.mcfunction',
         PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'list.mcfunction',
         PACK / 'data' / 'runtoolkit' / 'function' / 'manager' / 'require.mcfunction',
-    ]:
+        PACK / 'data' / 'runtoolkit' / 'function' / 'dpman.mcfunction',
+        PACK / 'data' / 'core' / 'function' / 'selector' / 'detect.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'run_many.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'enqueue_many.mcfunction',
+        PACK / 'data' / 'rtwrapper' / 'function' / 'condition' / 'check_current.mcfunction',
+    ]
+    for function in required_functions:
         if not function.exists():
-            fail(f'missing Runtoolkit manager function {function.relative_to(ROOT)}')
+            fail(f'missing required manager/selector/batch function {function.relative_to(ROOT)}')
+
+    core_load = (PACK / 'data' / 'rtwrapper' / 'function' / 'core' / 'load.mcfunction').read_text(encoding='utf-8')
+    if 'scoreboard objectives add rtw.temp dummy' not in core_load:
+        fail('rtwrapper:core/load must create rtw.temp')
+    if 'scoreboard objectives add RTWrapper trigger' in core_load:
+        fail('RTWrapper trigger objective must not be present after removing in-game trigger UI')
+
+    core_tick = (PACK / 'data' / 'rtwrapper' / 'function' / 'core' / 'tick.mcfunction').read_text(encoding='utf-8')
+    if 'rtwrapper:trigger/' in core_tick or 'scores={RTWrapper=' in core_tick:
+        fail('rtwrapper:core/tick must not process removed RTWrapper trigger UI')
+
+    for forbidden in ['dialog show', 'rtwrapper.testMode', 'trigger RTWrapper', 'RTWrapper trigger']:
+        for path in PACK.rglob('*.mcfunction'):
+            if forbidden in path.read_text(encoding='utf-8'):
+                fail(f'forbidden removed UI/testMode token {forbidden!r} in {path.relative_to(ROOT)}')
+
+    selector_detect = (PACK / 'data' / 'core' / 'function' / 'selector' / 'detect.mcfunction').read_text(encoding='utf-8')
+    for forbidden_selector in ['"@p"', '"@r"']:
+        if forbidden_selector in selector_detect:
+            fail(f'core selector detect must not allow {forbidden_selector}')
+    for required_selector in ['input.value', 'stringlib:util/find', '@s', '@a[limit=1]', '@e[type=player,limit=1]']:
+        if required_selector not in selector_detect:
+            fail(f'core selector detect missing {required_selector}')
+
+    rtw_register = (PACK / 'data' / 'runtoolkit' / 'function' / 'packs' / 'rtwrapper' / 'register.mcfunction').read_text(encoding='utf-8')
+    if 'dependencies:["stringlib"]' not in rtw_register:
+        fail('RTWrapper manager registration must declare StringLib dependency')
+
+    rtw_check = (PACK / 'data' / 'runtoolkit' / 'function' / 'packs' / 'rtwrapper' / 'check_dependencies.mcfunction').read_text(encoding='utf-8')
+    if 'stringlib:util/find' not in rtw_check:
+        fail('RTWrapper dependency check must probe StringLib')
+
+    api_run = (PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'run.mcfunction').read_text(encoding='utf-8')
+    if 'runSafeMode' not in api_run or 'rtwrapper:core/run/run_next' not in api_run:
+        fail('rtwrapper:api/run must support runSafeMode safe execution')
+    batch_run = (PACK / 'data' / 'rtwrapper' / 'function' / 'api' / 'run_many.mcfunction').read_text(encoding='utf-8')
+    if 'runSafeMode' not in batch_run or 'rtwrapper:api/enqueue_many' not in batch_run:
+        fail('rtwrapper:api/run_many must support batch runSafeMode')
 
     for advancement in [
         PACK / 'data' / 'runtoolkit' / 'advancement' / 'root.json',
@@ -134,7 +179,7 @@ def main() -> None:
         names = command_params[cmd]
         if 'scoreboard players set #pc rtw.status 0' not in text:
             fail(f'{wrapper.relative_to(ROOT)} does not compute parameter count')
-        for count, name in enumerate(names, start=1):
+        for _, name in enumerate(names, start=1):
             if f'current.params.{name}' not in text:
                 fail(f'{wrapper.relative_to(ROOT)} does not detect parameter {name}')
 
@@ -164,8 +209,12 @@ def main() -> None:
                 fail(f'mcfunction lines must not start with / at {rel}:{i}')
             if ADV_REVOKE_RE.search(line):
                 fail(f'advancement revoke is not allowed for loaded-pack registry at {rel}:{i}')
+            if MISSING_STORAGE_MODIFY_PATH_RE.search(line):
+                fail(f'missing storage path before set value at {rel}:{i}')
+            if MISSING_STORAGE_TEST_PATH_RE.search(line):
+                fail(f'missing storage path before run at {rel}:{i}')
 
-    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, runtoolkit advancements use minecraft:tick, format=107')
+    print(f'[validateDatapack] OK: {len(expected)} wrappers, {variant_count} named variants, no dialog/testMode, format=107')
 
 
 if __name__ == '__main__':

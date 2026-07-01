@@ -1,175 +1,99 @@
 # RTWrapper API
 
 Namespace: `rtwrapper`
-Target: Java Edition 26.2 / pack format 104.
+Target: Java Edition 26.2.
 
-## Storage protocol
-
-Immediate execution uses `storage rtwrapper:api request` plus `rtwrapper:api/run`.
-
-RTWrapper no longer uses a single `$(tail)` catch-all. Generated command wrappers use meaningful command-specific parameter names stored under `params`.
+## Single request
 
 ```mcfunction
-# /tp @s 0 80 0 immediately
-data modify storage rtwrapper:api request set value {cmd:"tp",params:{target:"@s",x:"0",y:"80",z:"0"}}
-function rtwrapper:api/run
-
-# /scoreboard players set #smoke rtw.test 1 immediately
-data modify storage rtwrapper:api request set value {cmd:"scoreboard",params:{category:"players",action:"set",subject:"#smoke",objective:"rtw.test",value:"1"}}
+data modify storage rtwrapper:api request set value {cmd:"give",params:{target:"@s",item:"minecraft:stone",count:"1"},runSafeMode:1b}
 function rtwrapper:api/run
 ```
 
-`type` is accepted as an alias for `cmd`:
+`type` is accepted as an alias for `cmd`.
+
+`runSafeMode` defaults to `0b`:
+
+- `0b`: immediate full drain.
+- `1b`: safe one-step execution.
+
+## Direct command API
 
 ```mcfunction
-data modify storage rtwrapper:api request set value {type:"give",params:{target:"@s",item:"minecraft:stone",count:"1"}}
-function rtwrapper:api/run
-```
-
-For delayed/autotick execution, enqueue the request instead of running it immediately:
-
-```mcfunction
-data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"queued hello"}}
-function rtwrapper:api/enqueue
-```
-
-Parameter order is command-specific and recorded in `datapack/commands-26.2.json` under `command_params`. Examples:
-
-```json
-{
-  "tp": ["target", "x", "y", "z", "rotation", "facing_mode", "facing_target", "facing_anchor"],
-  "give": ["target", "item", "count"],
-  "scoreboard": ["category", "action", "subject", "objective", "value", "operation", "source", "source_objective"]
-}
-```
-
-Important rule: provide contiguous parameters in that command's order. The dispatcher detects the highest present meaningful name and calls the matching variant, so unused params are not appended to the final command.
-
-The immediate handler flow is:
-
-```text
-rtwrapper:api/run
-  -> api/enqueue when request exists
-  -> core/run/run_actions
-    -> core/wrappers/handler/main
-      -> proc
-        -> dispatch
-          -> exec
-            -> core/wrappers/internal/<cmd>
-              -> core/wrappers/internal/variants/<cmd>_<N>
-```
-
-A generated variant looks like:
-
-```mcfunction
-$<command> $(meaningful_name_a) $(meaningful_name_b) ...
-```
-
-Put one token or one already-formatted Brigadier group in each parameter. For example, JSON/text messages can still be stored as one parameter value if Minecraft expects that parameter as one continuous component.
-
-## Direct API command wrappers
-
-You can also place parameters in `storage rtwrapper:api params` and call a direct API function:
-
-```mcfunction
-# /give @s minecraft:stone 1
 data modify storage rtwrapper:api params set value {target:"@s",item:"minecraft:stone",count:"1"}
 function rtwrapper:api/commands/give
 ```
 
-The direct API copies `rtwrapper:api params` to runtime storage and invokes `core/wrappers/internal/<command>`, which chooses the correct `<command>_<N>` variant.
+Parameter names are defined in `datapack/commands-26.2.json`.
 
-## Convenience named wrappers
-
-The datapack still includes named examples for common macro use:
+## Batch requests
 
 ```mcfunction
-# $tp $(target) $(x) $(y) $(z)
-data modify storage rtwrapper:api params set value {target:"@s",x:"0",y:"80",z:"0"}
-function rtwrapper:api/commands/tp_pos
-
-# $tp $(target) $(x) $(y) $(z) $(rotation)
-data modify storage rtwrapper:api params set value {target:"@s",x:"0",y:"80",z:"0",rotation:"0 0"}
-function rtwrapper:api/commands/tp_pos_rot
-
-# $give $(target) $(item)$(components) $(count)
-data modify storage rtwrapper:api params set value {target:"@s",item:"minecraft:stone",components:"",count:"1"}
-function rtwrapper:api/commands/give_item
+data modify storage rtwrapper:api batch set value {runSafeMode:1b,requests:[{req:{cmd:"give",params:{target:"@s",item:"minecraft:stone",count:"1"}},args:[{type:"score",name:"#allow",objective:"myScore",value:"1"}]},{req:{cmd:"function",params:{function_id:"my_pack:do_thing"}},args:[{type:"predicate",id:"my_pack:my_predicate"}]}]}
+function rtwrapper:api/run_many
 ```
 
-For `give_item`, `components:""` is allowed because it is concatenated directly to `item`, not appended as a separate trailing token.
+Item shape:
 
-## Trigger and dialog UI
+```snbt
+{req:{...normal RTWrapper request...},args:[...conditions...]}
+```
 
-RTWrapper creates two trigger-related objectives:
+Supported conditions:
+
+```snbt
+{type:"predicate",id:"my_pack:my_predicate"}
+{type:"score",name:"#allow",objective:"myScore",value:"1"}
+{type:"score",name:"#allow",score:"myScore",value:"1"}
+```
+
+Internally `args[]` is copied to `conditions[]` on the queued request.
+
+## Queue and autotick
 
 ```mcfunction
-scoreboard objectives add rtw.temp dummy
-scoreboard objectives add RTWrapper trigger
+function rtwrapper:api/autotick/on
+
+data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"queued hello"},runSafeMode:1b}
+function rtwrapper:api/enqueue
 ```
 
-`rtw.temp` is the temporary success/cancel flag used by UI and trigger functions:
+Autotick runs one action per tick.
 
-- `1` = accepted/success
-- `0` = canceled/error
-
-The in-game UI is intentionally gated behind the `rtwrapper.testMode` tag. This keeps experimental dialog features out of normal gameplay.
-
-Enable test mode for yourself:
+## Core selector detection
 
 ```mcfunction
-function rtwrapper:api/testmode/on
+data modify storage core:selector input.value set value "@s"
+function core:selector/detect
+data get storage core:selector result
 ```
 
-Trigger values:
+Allowed:
+
+- player names, StringLib-validated as no `@` and length 3..16
+- `@s`
+- restricted `@a[limit=1]` forms
+- restricted `@e[type=player,limit=1]` forms
+
+Rejected:
+
+- `@p`
+- `@r`
+- unrestricted `@a`
+- unrestricted or non-player `@e`
+
+If input storage is missing, the function returns fail before doing detection.
+
+## Runtoolkit manager
 
 ```mcfunction
-trigger RTWrapper set 1  # Open inline dialog UI
-trigger RTWrapper set 2  # Run current rtwrapper:api request with rtwrapper:api/run
-trigger RTWrapper set 3  # List command wrappers in chat
-trigger RTWrapper set 4  # Open runtoolkit:dpman
+function runtoolkit:api/list
+function runtoolkit:api/status
+function runtoolkit:api/dump_registry
+function runtoolkit:dpman
 ```
 
-Disable test mode:
-
-```mcfunction
-function rtwrapper:api/testmode/off
-```
-
-The dialog UI uses inline SNBT with `/dialog show @s {...}`; no dialog JSON file is required for the generated menus. It uses `minecraft:multi_action` dialogs and button actions such as `run_command`, `suggest_command`, `copy_to_clipboard`, and nested menu functions.
-
-## StringLib selector detection
-
-RTWrapper declares a managed dependency on [StringLib](https://github.com/CMDred/StringLib) and probes it with `stringlib:util/find`. Selector detection helpers search a string for vanilla selector tokens like `@p`, `@a`, `@s`, `@r`, and `@e`.
-
-Example:
-
-```mcfunction
-data modify storage rtwrapper:api string.value set value "@p"
-function rtwrapper:string/detect_selector
-```
-
-Output is stored in `@s rtw.temp` and `storage rtwrapper:runtime selector.found`:
-
-- `rtw.temp = 1`, `found:1b` means a selector token was detected.
-- `rtw.temp = 0`, `found:0b` means no selector token was detected or StringLib was unavailable.
-
-## Runtoolkit global datapack manager
-
-RTWrapper includes a shared `runtoolkit` namespace that behaves like a lightweight manager for Runtoolkit datapacks/modules. It does not run vanilla `/datapack enable|disable`; instead it manages Runtoolkit pack registration, dependency checks, load/tick hooks, dynamic listing, and manager-level enable/disable/reload.
-
-Core files:
-
-```text
-data/runtoolkit/function/core/load.mcfunction
-data/runtoolkit/function/core/tick.mcfunction
-data/runtoolkit/function/api/*.mcfunction
-data/runtoolkit/function/manager/*.mcfunction
-data/runtoolkit/advancement/root.json
-data/runtoolkit/advancement/packs/rtwrapper.json
-```
-
-Function tags used by the manager:
+Manager hooks:
 
 ```text
 #runtoolkit:register
@@ -181,154 +105,28 @@ Function tags used by the manager:
 #runtoolkit:reload
 ```
 
-The Minecraft `load` and `tick` tags call only the Runtoolkit manager entrypoints. The manager then dispatches the registered pack hooks.
-
-### Visual loaded-pack list
-
-The visual registry uses advancements with the `minecraft:tick` trigger and does not revoke them. After `/reload`, open **Advancements > Runtoolkit** to see loaded Runtoolkit packs/modules.
+Enable/disable/reload one managed pack:
 
 ```mcfunction
-function runtoolkit:api/status
-function runtoolkit:api/list
-```
-
-For console-friendly raw storage output:
-
-```mcfunction
-function runtoolkit:api/dump_registry
-```
-
-### Manager enable / disable / reload
-
-```mcfunction
-# Disable RTWrapper manager hooks
 data modify storage runtoolkit:api request set value {id:"rtwrapper"}
 function runtoolkit:api/disable
 
-# Enable RTWrapper manager hooks
 data modify storage runtoolkit:api request set value {id:"rtwrapper"}
 function runtoolkit:api/enable
 
-# Reload RTWrapper through the manager
 data modify storage runtoolkit:api request set value {id:"rtwrapper"}
 function runtoolkit:api/reload
 ```
 
-Bulk hooks:
+Dependency helper:
 
 ```mcfunction
-function runtoolkit:api/disable_all
-function runtoolkit:api/enable_all
-function runtoolkit:api/reload_all
-```
-
-### Dependency management
-
-Packs define their metadata in their register hook and can provide a `check_dependencies` hook. Dependency checks should call `runtoolkit:api/require` for each dependency:
-
-```mcfunction
-data modify storage runtoolkit:api request set value {id:"required_pack_id"}
+data modify storage runtoolkit:api request set value {id:"required_pack"}
 function runtoolkit:api/require
 ```
 
-`api/require` increments `#dependency_errors rtk.status` and appends to `storage runtoolkit:runtime missing_dependencies` when the dependency is not enabled.
+The Runtoolkit advancement registry uses `minecraft:tick` and is never revoked.
 
-### How another Runtoolkit pack registers
+## Removed UI systems
 
-A Runtoolkit pack should add functions to the manager tags, for example:
-
-```json
-{
-  "values": [
-    "runtoolkit:packs/my_pack/register"
-  ]
-}
-```
-
-under:
-
-```text
-data/runtoolkit/tags/function/register.json
-```
-
-Recommended pack hook layout:
-
-```text
-data/runtoolkit/function/packs/my_pack/register.mcfunction
-data/runtoolkit/function/packs/my_pack/load.mcfunction
-data/runtoolkit/function/packs/my_pack/tick.mcfunction
-data/runtoolkit/function/packs/my_pack/list.mcfunction
-data/runtoolkit/function/packs/my_pack/enable.mcfunction
-data/runtoolkit/function/packs/my_pack/disable.mcfunction
-data/runtoolkit/function/packs/my_pack/reload.mcfunction
-data/runtoolkit/function/packs/my_pack/check_dependencies.mcfunction
-```
-
-The pack should also add a child advancement under the shared namespace:
-
-```text
-data/runtoolkit/advancement/packs/my_pack.json
-```
-
-Use `minecraft:tick` as the trigger:
-
-```json
-{
-  "parent": "runtoolkit:root",
-  "display": {
-    "icon": {"id": "minecraft:knowledge_book"},
-    "title": {"text": "My Pack", "color": "green"},
-    "description": {"text": "Loaded: My Pack"},
-    "show_toast": false,
-    "announce_to_chat": false,
-    "hidden": false
-  },
-  "criteria": {
-    "loaded": {"trigger": "minecraft:tick"}
-  }
-}
-```
-
-Do not add revoke functions for this registry; the goal is a persistent loaded-pack marker.
-
-## Debug / silent
-
-```mcfunction
-function rtwrapper:api/debug/listen
-function rtwrapper:api/debug/on
-function rtwrapper:api/silent/off
-function rtwrapper:api/status
-```
-
-`silent` suppresses RTWrapper's own debug/status tellraw output. It intentionally does not permanently toggle vanilla gamerules.
-
-## Auto tick
-
-Auto tick is disabled by default.
-
-```mcfunction
-function rtwrapper:api/autotick/on
-function rtwrapper:api/autotick/off
-```
-
-Current behavior: autotick processes **one** action per tick by calling `core/run/run_next`. It does not recursively drain the whole queue. This avoids tick spikes and runaway recursion.
-
-Recommended autotick usage for multiple actions:
-
-```mcfunction
-function rtwrapper:api/autotick/on
-
-data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"first queued action"}}
-function rtwrapper:api/enqueue
-
-data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"second queued action"}}
-function rtwrapper:api/enqueue
-```
-
-Each queued action will be processed on a later tick, one per tick. If you write a single `rtwrapper:api request` and do not enqueue it, autotick will still consume that one direct request on the next tick; however, multiple producers should use `api/enqueue` to avoid overwriting the shared request storage.
-
-Use `function rtwrapper:api/run` only when you want immediate full drain.
-
-## Security note
-
-Every macro command runs with the permission/context of the function caller. Only write trusted strings into `rtwrapper:api request` or `rtwrapper:api params`.
+RTWrapper no longer provides the experimental dialog UI, `rtwrapper.testMode`, or the `RTWrapper` trigger objective. Use command functions directly.

@@ -1,0 +1,708 @@
+diff --git a/README.md b/README.md
+index 0886332..ebf32f9 100644
+--- a/README.md
++++ b/README.md
+@@ -4,14 +4,14 @@ RTWrapper is a Fabric mod + standalone datapack for Java Edition 26.2. The mod e
+ 
+ ## Requirements
+ 
+-| Component        | Version                          |
+-|-------------------|-----------------------------------|
+-| Minecraft         | 26.2 ("Chaos Cubed")              |
+-| Java              | 25 (JDK 25 toolchain required)    |
+-| Fabric Loader     | matches `fabric.mod.json` — verify against `build/libs` manifest before release |
+-| Fabric API        | matches `fabric.mod.json`         |
+-| Gradle            | 9.5+                              |
+-| Pack format       | see `pack.mcmeta` in the datapack root — bump this in lockstep with `PACK_FORMAT` in `scripts/generate_wrappers.py` |
++| Component | Version |
++| --- | --- |
++| Minecraft | 26.2 ("Chaos Cubed") |
++| Java | 25 (JDK 25 toolchain required) |
++| Fabric Loader | matches `fabric.mod.json` — verify against `build/libs` manifest before release |
++| Fabric API | matches `fabric.mod.json` |
++| Gradle | 9.5+ |
++| Pack format | see `pack.mcmeta` in the datapack root — bump this in lockstep with `PACK_FORMAT` in `scripts/generate_wrappers.py` |
+ 
+ RTWrapper is built and tested against 26.2 only. It has not been validated against 26.1 or 26.3 — see "Updating command wrappers" below before attempting cross-version use.
+ 
+@@ -36,6 +36,7 @@ src/gametest/                     Fabric server GameTests
+ 4. Drop the jar into your `mods/` folder.
+ 5. Launch the game or server. The mod embeds its datapack automatically — no separate install step needed.
+ 6. In-world, run `/reload` once to ensure the embedded datapack functions are registered, then verify with:
++
+    ```mcfunction
+    function runtoolkit:api/status
+    ```
+@@ -46,6 +47,7 @@ src/gametest/                     Fabric server GameTests
+ 2. Place the zip into your world's `datapacks/` folder (`<world>/datapacks/RTWrapper-Datapack-<version>.zip`), or into `datapacks/` under your server root for a server.
+ 3. If the world is already running, run `/reload`. Otherwise this loads automatically on world start.
+ 4. Confirm the datapack is active — check **Advancements > Runtoolkit** in-game, or run:
++
+    ```mcfunction
+    function runtoolkit:api/status
+    ```
+@@ -80,19 +82,18 @@ data modify storage rtwrapper:api params set value {target:"@s",item:"minecraft:
+ function rtwrapper:api/commands/give_item
+ ```
+ 
+-### `run` vs `enqueue`/autotick
++### `run` vs `enqueue` / autotick
+ 
+ Two distinct execution paths exist — they are not interchangeable:
+ 
+-- **`rtwrapper:api/run`** executes the request in `rtwrapper:api request` (or `rtwrapper:api params` for direct command wrappers) immediately, synchronously, in the current tick. Use this for one-off calls where you need the result available before your function continues.
+-- **`rtwrapper:api/enqueue`** + autotick pushes the request onto a queue that is drained one action per tick by `rtwrapper:api/autotick/on`. Use this when issuing many commands in a burst (e.g. spawning many entities, batch scoreboard writes) where spreading load across ticks avoids a single-tick lag spike. The tradeoff is latency: an enqueued action is not guaranteed to execute in the same tick it was queued.
+-
+-Calling `rtwrapper:api/run` while autotick is on and the queue is non-empty performs a full immediate drain of the queue — see below.
++- **`rtwrapper:api/run`** executes the request in `rtwrapper:api request` immediately and drains the queue synchronously in the current tick. Use this for one-off calls where you need the result before your function continues.
++- **`rtwrapper:api/enqueue`** pushes the request onto a queue. With `rtwrapper:api/autotick/on`, the queue is processed one action per tick. Use this when issuing many commands in a burst where spreading load across ticks avoids a single-tick lag spike.
+ 
+ Autotick usage:
+ 
+ ```mcfunction
+ function rtwrapper:api/autotick/on
++
+ data modify storage rtwrapper:api request set value {cmd:"say",params:{message:"queued hello"}}
+ function rtwrapper:api/enqueue
+ ```
+@@ -101,15 +102,71 @@ Autotick processes one queued action per tick. Use `function rtwrapper:api/run`
+ 
+ See [`docs/API.md`](docs/API.md) for the full protocol and debug/silent controls.
+ 
++## Runtoolkit manager / loaded-pack discovery
++
++RTWrapper installs the shared `runtoolkit` namespace so Runtoolkit packs can be managed globally:
++
++```text
++data/runtoolkit/function/
++data/runtoolkit/tags/function/
++data/runtoolkit/advancement/root.json
++data/runtoolkit/advancement/packs/rtwrapper.json
++```
++
++After `/reload`, players get a visible **Advancements > Runtoolkit** tab via the `minecraft:tick` advancement trigger. This is intentionally not revoked, so it can be used as a stable visual list of loaded Runtoolkit datapacks without reading a long `/datapack list` output.
++
++Dynamic list/status:
++
++```mcfunction
++function runtoolkit:api/status
++function runtoolkit:api/list
++function runtoolkit:api/dump_registry
++```
++
++Manager controls for one pack:
++
++```mcfunction
++data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++function runtoolkit:api/disable
++
++data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++function runtoolkit:api/enable
++
++data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++function runtoolkit:api/reload
++```
++
++Bulk manager hooks:
++
++```mcfunction
++function runtoolkit:api/disable_all
++function runtoolkit:api/enable_all
++function runtoolkit:api/reload_all
++```
++
++This manager does not call vanilla `/datapack disable|enable`; it controls Runtoolkit-managed registration/load/tick hooks. Functions still exist when a pack is manager-disabled, but the global manager stops running that pack's managed hooks.
++
++Other Runtoolkit projects can join the system by adding functions to these tags:
++
++```text
++#runtoolkit:register
++#runtoolkit:load
++#runtoolkit:tick
++#runtoolkit:list
++#runtoolkit:enable
++#runtoolkit:disable
++#runtoolkit:reload
++```
++
+ ## `commands-26.2.json`
+ 
+-This file is the single source of truth for what `generate_wrappers.py` emits — it is not just a manifest, it defines every wrapper function that exists under `rtwrapper:api/commands/`. Structure:
++This file is the single source of truth for what `generate_wrappers.py` emits:
+ 
+-- Top-level: one entry per supported vanilla command (`tp`, `give`, `scoreboard`, etc.)
+-- Each entry lists ordered parameter names for that command's positional wrapper variant(s) — this is what determines the exact param order you must supply in `params:{...}` when calling that command's `<command>_<N>` variant.
+-- Named convenience wrappers (like `give_item`) are derived from this file per the macro syntax comment above their definition (e.g. `$give $(target) $(item)$(components) $(count)`).
++- Top-level command lists define supported vanilla commands (`tp`, `give`, `scoreboard`, etc.).
++- `command_params` lists ordered meaningful parameter names for each command.
++- Named convenience wrappers (like `give_item`) are generated alongside the vanilla command wrappers.
+ 
+-If you add or change a command's parameters, edit this file first, then regenerate (see "Updating command wrappers" below) — hand-editing generated function files under `data/rtwrapper/function/api/commands/` directly will be overwritten on next generation.
++If you add or change a command's parameters, edit `scripts/generate_wrappers.py` first, regenerate, then validate. Hand-editing generated function files under `data/rtwrapper/function/api/commands/` directly will be overwritten on next generation.
+ 
+ ## Build
+ 
+@@ -121,10 +178,11 @@ python3 scripts/validate_datapack.py
+ ```
+ 
+ Build outputs:
++
+ - Fabric mod jar: `build/libs/rtwrapper-<version>.jar`
+ - Standalone datapack zip: `build/libs/RTWrapper-Datapack-<version>.zip`
+ 
+-The `build` task also runs server GameTests through Fabric API's GameTest integration — these spin up a headless test server as part of the Gradle build itself (not a separate CI-only step) and will fail the build on test failure. Running `./gradlew build` locally runs the same GameTests that run in CI; there is no separate local/CI test split. To run only the GameTests without a full build, use:
++The `build` task also runs server GameTests through Fabric API's GameTest integration. These spin up a headless test server as part of the Gradle build and fail the build on test failure. To run only the GameTests without a full build, use:
+ 
+ ```bash
+ ./gradlew runGametest
+@@ -142,11 +200,11 @@ python3 scripts/validate_datapack.py
+ ./gradlew build
+ ```
+ 
+-Bumping `PACK_FORMAT` without updating every consuming datapack (including any `runtoolkit:` namespace dependents) will silently break `/reload` behavior on older packs — Minecraft does not always hard-error on a pack_format mismatch, it may just warn and load anyway with undefined wrapper behavior. Verify with `function runtoolkit:api/status` after any pack_format bump, don't assume silence means success.
++Bumping `PACK_FORMAT` without updating every consuming datapack (including any `runtoolkit:` namespace dependents) can break `/reload` behavior on older packs. Verify with `function runtoolkit:api/status` after any pack format bump; don't assume silence means success.
+ 
+ ## License
+ 
+-No license file is currently present in this repository. Until one is added, default copyright applies and no reuse, modification, or redistribution rights are granted to third parties beyond what's needed to view the source. If this repo is intended to be public or to accept external contributions, add a `LICENSE` file before relying on that assumption.
++MIT. See [`LICENSE`](LICENSE).
+ 
+ ## Safety
+ 
+diff --git a/datapack/RTWrapper-Datapack/data/minecraft/tags/function/load.json b/datapack/RTWrapper-Datapack/data/minecraft/tags/function/load.json
+index 6b11790..6ba7ba2 100644
+--- a/datapack/RTWrapper-Datapack/data/minecraft/tags/function/load.json
++++ b/datapack/RTWrapper-Datapack/data/minecraft/tags/function/load.json
+@@ -1,6 +1,5 @@
+ {
+   "values": [
+-    "rtwrapper:core/load",
+     "runtoolkit:core/load"
+   ]
+ }
+diff --git a/datapack/RTWrapper-Datapack/data/minecraft/tags/function/tick.json b/datapack/RTWrapper-Datapack/data/minecraft/tags/function/tick.json
+index 4cda2d7..4ba576f 100644
+--- a/datapack/RTWrapper-Datapack/data/minecraft/tags/function/tick.json
++++ b/datapack/RTWrapper-Datapack/data/minecraft/tags/function/tick.json
+@@ -1,6 +1,5 @@
+ {
+   "values": [
+-    "rtwrapper:core/tick",
+     "runtoolkit:core/tick"
+   ]
+ }
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/disable.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/disable.mcfunction
+new file mode 100644
+index 0000000..5f19c7d
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/disable.mcfunction
+@@ -0,0 +1,4 @@
++# Disable one managed Runtoolkit pack.
++# Usage: data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++#        function runtoolkit:api/disable
++function runtoolkit:manager/disable with storage runtoolkit:api request
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/disable_all.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/disable_all.mcfunction
+new file mode 100644
+index 0000000..d6f44b9
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/disable_all.mcfunction
+@@ -0,0 +1,2 @@
++# Disable all registered Runtoolkit packs through their managed hooks.
++function #runtoolkit:disable
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/dump_registry.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/dump_registry.mcfunction
+new file mode 100644
+index 0000000..9838ce1
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/dump_registry.mcfunction
+@@ -0,0 +1,2 @@
++# Console-friendly raw registry dump.
++data get storage runtoolkit:registry packs
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/enable.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/enable.mcfunction
+new file mode 100644
+index 0000000..7e403f0
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/enable.mcfunction
+@@ -0,0 +1,4 @@
++# Enable one managed Runtoolkit pack.
++# Usage: data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++#        function runtoolkit:api/enable
++function runtoolkit:manager/enable with storage runtoolkit:api request
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/enable_all.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/enable_all.mcfunction
+new file mode 100644
+index 0000000..a381174
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/enable_all.mcfunction
+@@ -0,0 +1,2 @@
++# Enable all registered Runtoolkit packs through their managed hooks.
++function #runtoolkit:enable
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/list.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/list.mcfunction
+new file mode 100644
+index 0000000..5e00960
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/list.mcfunction
+@@ -0,0 +1,3 @@
++# Dynamic list of Runtoolkit-managed packs.
++tellraw @s [{"text":"[Runtoolkit] Managed packs","color":"gold","bold":true}]
++function #runtoolkit:list
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/reload.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/reload.mcfunction
+new file mode 100644
+index 0000000..c4b06e6
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/reload.mcfunction
+@@ -0,0 +1,4 @@
++# Reload one managed Runtoolkit pack.
++# Usage: data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++#        function runtoolkit:api/reload
++function runtoolkit:manager/reload with storage runtoolkit:api request
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/reload_all.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/reload_all.mcfunction
+new file mode 100644
+index 0000000..7ac00f6
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/reload_all.mcfunction
+@@ -0,0 +1,7 @@
++# Re-register and reload all enabled Runtoolkit packs without using /reload.
++data modify storage runtoolkit:registry packs set value {}
++data modify storage runtoolkit:runtime missing_dependencies set value []
++scoreboard players set #dependency_errors rtk.status 0
++scoreboard players add #manager_reloads rtk.status 1
++function #runtoolkit:register
++function #runtoolkit:reload
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/require.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/require.mcfunction
+new file mode 100644
+index 0000000..bf2f380
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/require.mcfunction
+@@ -0,0 +1,4 @@
++# Dependency assertion helper for pack check hooks.
++# Usage: data modify storage runtoolkit:api request set value {id:"dependency_pack_id"}
++#        function runtoolkit:api/require
++function runtoolkit:manager/require with storage runtoolkit:api request
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/status.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/status.mcfunction
+index 4c7042e..99a925c 100644
+--- a/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/status.mcfunction
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/api/status.mcfunction
+@@ -1,2 +1,2 @@
+-# Lightweight status helper for Runtoolkit packs.
+-tellraw @s [{"text":"[Runtoolkit] Loaded registry: ","color":"gold"},{"text":"RTWrapper","color":"green"},{"text":". Open Advancements > Runtoolkit for the visual loaded-pack list.","color":"gray"}]
++# Alias for the dynamic list view.
++function runtoolkit:api/list
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/load.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/load.mcfunction
+index 25b260c..23eac05 100644
+--- a/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/load.mcfunction
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/load.mcfunction
+@@ -1,5 +1,15 @@
+-# Runtoolkit common registry bootstrap.
+-# This namespace is shared by Runtoolkit datapacks so loaded modules can be
+-# discovered without relying on /datapack list.
++# Runtoolkit global datapack manager bootstrap.
++# All Runtoolkit datapacks register through #runtoolkit:register, then the
++# manager runs enabled pack load hooks through #runtoolkit:load.
++scoreboard objectives add rtk.registered dummy
++scoreboard objectives add rtk.enabled dummy
+ scoreboard objectives add rtk.loaded dummy
+-function runtoolkit:packs/rtwrapper/register
++scoreboard objectives add rtk.status dummy
++
++data modify storage runtoolkit:registry packs set value {}
++data modify storage runtoolkit:runtime missing_dependencies set value []
++scoreboard players set #dependency_errors rtk.status 0
++scoreboard players add #reloads rtk.status 1
++
++function #runtoolkit:register
++function #runtoolkit:load
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/tick.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/tick.mcfunction
+index 3bda22e..6a9c701 100644
+--- a/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/tick.mcfunction
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/core/tick.mcfunction
+@@ -1,4 +1,4 @@
+-# Runtoolkit common tick hook.
+-# Advancement completion is handled by advancement trigger minecraft:tick.
+-# Keep this function lightweight and do not revoke advancements here.
+-execute if score #rtwrapper rtk.loaded matches 1 run scoreboard players add #rtwrapper_ticks rtk.loaded 0
++# Runtoolkit global datapack manager tick.
++# Managed packs should add a lightweight function to #runtoolkit:tick and gate
++# their own tick work behind their rtk.enabled score.
++function #runtoolkit:tick
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/check.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/check.mcfunction
+new file mode 100644
+index 0000000..7b7892f
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/check.mcfunction
+@@ -0,0 +1,2 @@
++# Macro dispatch to a pack dependency check hook.
++$function runtoolkit:packs/$(id)/check_dependencies
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/disable.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/disable.mcfunction
+new file mode 100644
+index 0000000..fff3bfd
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/disable.mcfunction
+@@ -0,0 +1,2 @@
++# Macro dispatch to a pack disable hook.
++$function runtoolkit:packs/$(id)/disable
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/enable.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/enable.mcfunction
+new file mode 100644
+index 0000000..2046b72
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/enable.mcfunction
+@@ -0,0 +1,2 @@
++# Macro dispatch to a pack enable hook.
++$function runtoolkit:packs/$(id)/enable
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/reload.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/reload.mcfunction
+new file mode 100644
+index 0000000..9222ffa
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/reload.mcfunction
+@@ -0,0 +1,2 @@
++# Macro dispatch to a pack reload hook.
++$function runtoolkit:packs/$(id)/reload
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/require.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/require.mcfunction
+new file mode 100644
+index 0000000..04f17e7
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/manager/require.mcfunction
+@@ -0,0 +1,4 @@
++# Macro dependency check: a dependency is satisfied only when its rtk.enabled
++# score is 1 or greater. Missing dependencies are recorded in runtime storage.
++$execute unless score $(id) rtk.enabled matches 1.. run scoreboard players add #dependency_errors rtk.status 1
++$execute unless score $(id) rtk.enabled matches 1.. run data modify storage runtoolkit:runtime missing_dependencies append value "$(id)"
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/check_dependencies.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/check_dependencies.mcfunction
+new file mode 100644
+index 0000000..a1bf7ff
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/check_dependencies.mcfunction
+@@ -0,0 +1,4 @@
++# RTWrapper has no Runtoolkit dependencies.
++data modify storage runtoolkit:runtime missing_dependencies set value []
++scoreboard players set #dependency_errors rtk.status 0
++scoreboard players set rtwrapper rtk.loaded 0
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/disable.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/disable.mcfunction
+new file mode 100644
+index 0000000..ff5a6a7
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/disable.mcfunction
+@@ -0,0 +1,5 @@
++# Disable RTWrapper manager hooks. Functions remain present, but the global
++# manager will stop running RTWrapper load/tick hooks.
++scoreboard players set rtwrapper rtk.enabled 0
++scoreboard players set rtwrapper rtk.loaded 0
++tellraw @a [{"text":"[Runtoolkit] Disabled RTWrapper manager hooks","color":"yellow"}]
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/enable.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/enable.mcfunction
+new file mode 100644
+index 0000000..5c5b30b
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/enable.mcfunction
+@@ -0,0 +1,5 @@
++# Enable RTWrapper manager hooks. This does not run /datapack enable; it controls
++# Runtoolkit-managed execution hooks.
++scoreboard players set rtwrapper rtk.enabled 1
++function runtoolkit:packs/rtwrapper/load
++tellraw @a [{"text":"[Runtoolkit] Enabled RTWrapper","color":"green"}]
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/list.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/list.mcfunction
+new file mode 100644
+index 0000000..51162d5
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/list.mcfunction
+@@ -0,0 +1,3 @@
++# Dynamic list row for RTWrapper.
++execute if score rtwrapper rtk.enabled matches 1.. run tellraw @s [{"text":" - RTWrapper ","color":"aqua"},{"text":"enabled","color":"green"},{"text":" v0.1.1+26.2","color":"gray"}]
++execute unless score rtwrapper rtk.enabled matches 1.. run tellraw @s [{"text":" - RTWrapper ","color":"aqua"},{"text":"disabled","color":"red"},{"text":" v0.1.1+26.2","color":"gray"}]
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/load.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/load.mcfunction
+new file mode 100644
+index 0000000..f409cef
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/load.mcfunction
+@@ -0,0 +1,5 @@
++# Load RTWrapper only when enabled and dependency checks pass.
++execute if score rtwrapper rtk.enabled matches 1.. run function runtoolkit:packs/rtwrapper/check_dependencies
++execute if score rtwrapper rtk.enabled matches 1.. if score #dependency_errors rtk.status matches 0 run function rtwrapper:core/load
++execute if score rtwrapper rtk.enabled matches 1.. if score #dependency_errors rtk.status matches 0 run scoreboard players set rtwrapper rtk.loaded 1
++execute if score rtwrapper rtk.enabled matches 1.. unless score #dependency_errors rtk.status matches 0 run tellraw @a [{"text":"[Runtoolkit] RTWrapper dependency check failed: ","color":"red"},{"nbt":"missing_dependencies","storage":"runtoolkit:runtime","color":"yellow"}]
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/register.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/register.mcfunction
+index 1a95289..0e96585 100644
+--- a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/register.mcfunction
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/register.mcfunction
+@@ -1,4 +1,10 @@
+-# Registration hook for RTWrapper. Other Runtoolkit datapacks can mirror this pattern.
++# Register RTWrapper with the global Runtoolkit manager.
++scoreboard objectives add rtk.registered dummy
++scoreboard objectives add rtk.enabled dummy
+ scoreboard objectives add rtk.loaded dummy
+-scoreboard players set #rtwrapper rtk.loaded 1
+-data modify storage runtoolkit:registry packs.rtwrapper set value {id:"rtwrapper",name:"RTWrapper",version:"0.1.1+26.2",kind:"datapack",advancement:"runtoolkit:packs/rtwrapper"}
++scoreboard objectives add rtk.status dummy
++
++scoreboard players set rtwrapper rtk.registered 1
++execute unless score rtwrapper rtk.enabled matches 0.. run scoreboard players set rtwrapper rtk.enabled 1
++
++data modify storage runtoolkit:registry packs.rtwrapper set value {id:"rtwrapper",name:"RTWrapper",version:"0.1.1+26.2",namespace:"rtwrapper",kind:"datapack",advancement:"runtoolkit:packs/rtwrapper",dependencies:[],hooks:{register:"runtoolkit:packs/rtwrapper/register",load:"runtoolkit:packs/rtwrapper/load",tick:"runtoolkit:packs/rtwrapper/tick",list:"runtoolkit:packs/rtwrapper/list",enable:"runtoolkit:packs/rtwrapper/enable",disable:"runtoolkit:packs/rtwrapper/disable",reload:"runtoolkit:packs/rtwrapper/reload",check_dependencies:"runtoolkit:packs/rtwrapper/check_dependencies"}}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/reload.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/reload.mcfunction
+new file mode 100644
+index 0000000..40a9fce
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/reload.mcfunction
+@@ -0,0 +1,4 @@
++# Reload RTWrapper through the manager.
++function runtoolkit:packs/rtwrapper/register
++function runtoolkit:packs/rtwrapper/load
++tellraw @a [{"text":"[Runtoolkit] Reloaded RTWrapper","color":"aqua"}]
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/tick.mcfunction b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/tick.mcfunction
+new file mode 100644
+index 0000000..512eeb5
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/function/packs/rtwrapper/tick.mcfunction
+@@ -0,0 +1,2 @@
++# Managed tick hook for RTWrapper.
++execute if score rtwrapper rtk.enabled matches 1.. run function rtwrapper:core/tick
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/disable.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/disable.json
+new file mode 100644
+index 0000000..ca05425
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/disable.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/disable"
++  ]
++}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/enable.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/enable.json
+new file mode 100644
+index 0000000..022dc73
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/enable.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/enable"
++  ]
++}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/list.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/list.json
+new file mode 100644
+index 0000000..edc84d2
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/list.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/list"
++  ]
++}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/load.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/load.json
+new file mode 100644
+index 0000000..8a064db
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/load.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/load"
++  ]
++}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/register.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/register.json
+new file mode 100644
+index 0000000..1df6417
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/register.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/register"
++  ]
++}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/reload.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/reload.json
+new file mode 100644
+index 0000000..1d2a982
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/reload.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/reload"
++  ]
++}
+diff --git a/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/tick.json b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/tick.json
+new file mode 100644
+index 0000000..6e510ee
+--- /dev/null
++++ b/datapack/RTWrapper-Datapack/data/runtoolkit/tags/function/tick.json
+@@ -0,0 +1,5 @@
++{
++  "values": [
++    "runtoolkit:packs/rtwrapper/tick"
++  ]
++}
+diff --git a/docs/API.md b/docs/API.md
+index b9c37b7..e25c35e 100644
+--- a/docs/API.md
++++ b/docs/API.md
+@@ -99,33 +99,123 @@ function rtwrapper:api/commands/give_item
+ 
+ For `give_item`, `components:""` is allowed because it is concatenated directly to `item`, not appended as a separate trailing token.
+ 
+-## Runtoolkit loaded-pack registry
++## Runtoolkit global datapack manager
+ 
+-RTWrapper includes a shared `runtoolkit` namespace for Runtoolkit datapack discovery:
++RTWrapper includes a shared `runtoolkit` namespace that behaves like a lightweight manager for Runtoolkit datapacks/modules. It does not run vanilla `/datapack enable|disable`; instead it manages Runtoolkit pack registration, dependency checks, load/tick hooks, dynamic listing, and manager-level enable/disable/reload.
++
++Core files:
+ 
+ ```text
+ data/runtoolkit/function/core/load.mcfunction
+ data/runtoolkit/function/core/tick.mcfunction
+-data/runtoolkit/function/api/status.mcfunction
++data/runtoolkit/function/api/*.mcfunction
++data/runtoolkit/function/manager/*.mcfunction
+ data/runtoolkit/advancement/root.json
+ data/runtoolkit/advancement/packs/rtwrapper.json
+ ```
+ 
+-The visual registry uses advancements with the `minecraft:tick` trigger and does not revoke them. After `/reload`, open **Advancements > Runtoolkit** to see loaded Runtoolkit packs/modules.
++Function tags used by the manager:
++
++```text
++#runtoolkit:register
++#runtoolkit:load
++#runtoolkit:tick
++#runtoolkit:list
++#runtoolkit:enable
++#runtoolkit:disable
++#runtoolkit:reload
++```
++
++The Minecraft `load` and `tick` tags call only the Runtoolkit manager entrypoints. The manager then dispatches the registered pack hooks.
+ 
+-Status helper:
++### Visual loaded-pack list
++
++The visual registry uses advancements with the `minecraft:tick` trigger and does not revoke them. After `/reload`, open **Advancements > Runtoolkit** to see loaded Runtoolkit packs/modules.
+ 
+ ```mcfunction
+ function runtoolkit:api/status
++function runtoolkit:api/list
++```
++
++For console-friendly raw storage output:
++
++```mcfunction
++function runtoolkit:api/dump_registry
++```
++
++### Manager enable / disable / reload
++
++```mcfunction
++# Disable RTWrapper manager hooks
++data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++function runtoolkit:api/disable
++
++# Enable RTWrapper manager hooks
++data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++function runtoolkit:api/enable
++
++# Reload RTWrapper through the manager
++data modify storage runtoolkit:api request set value {id:"rtwrapper"}
++function runtoolkit:api/reload
++```
++
++Bulk hooks:
++
++```mcfunction
++function runtoolkit:api/disable_all
++function runtoolkit:api/enable_all
++function runtoolkit:api/reload_all
++```
++
++### Dependency management
++
++Packs define their metadata in their register hook and can provide a `check_dependencies` hook. Dependency checks should call `runtoolkit:api/require` for each dependency:
++
++```mcfunction
++data modify storage runtoolkit:api request set value {id:"required_pack_id"}
++function runtoolkit:api/require
++```
++
++`api/require` increments `#dependency_errors rtk.status` and appends to `storage runtoolkit:runtime missing_dependencies` when the dependency is not enabled.
++
++### How another Runtoolkit pack registers
++
++A Runtoolkit pack should add functions to the manager tags, for example:
++
++```json
++{
++  "values": [
++    "runtoolkit:packs/my_pack/register"
++  ]
++}
++```
++
++under:
++
++```text
++data/runtoolkit/tags/function/register.json
++```
++
++Recommended pack hook layout:
++
++```text
++data/runtoolkit/function/packs/my_pack/register.mcfunction
++data/runtoolkit/function/packs/my_pack/load.mcfunction
++data/runtoolkit/function/packs/my_pack/tick.mcfunction
++data/runtoolkit/function/packs/my_pack/list.mcfunction
++data/runtoolkit/function/packs/my_pack/enable.mcfunction
++data/runtoolkit/function/packs/my_pack/disable.mcfunction
++data/runtoolkit/function/packs/my_pack/reload.mcfunction
++data/runtoolkit/function/packs/my_pack/check_dependencies.mcfunction
+ ```
+ 
+-Other Runtoolkit datapacks can add themselves by including a child advancement under the shared namespace, for example:
++The pack should also add a child advancement under the shared namespace:
+ 
+ ```text
+ data/runtoolkit/advancement/packs/my_pack.json
+ ```
+ 
+-Use this pattern:
++Use `minecraft:tick` as the trigger:
+ 
+ ```json
+ {
+diff --git a/scripts/validate_datapack.py b/scripts/validate_datapack.py
+index b510fc8..ce01276 100644
+--- a/scripts/validate_datapack.py
++++ b/scripts/validate_datapack.py
+@@ -49,8 +49,8 @@ def main() -> None:
+         fail('pack.mcmeta must declare min_format=[107, 1] and max_format=[107, 1] for the 26.2 target')
+ 
+     required_tag_values = {
+-        'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
+-        'tick': {'rtwrapper:core/tick', 'runtoolkit:core/tick'},
++        'load': {'runtoolkit:core/load'},
++        'tick': {'runtoolkit:core/tick'},
+     }
+     for tag, required_values in required_tag_values.items():
+         data = load_json(PACK / 'data' / 'minecraft' / 'tags' / 'function' / f'{tag}.json')
+@@ -58,6 +58,25 @@ def main() -> None:
+         if not required_values.issubset(values):
+             fail(f'{tag}.json missing values: {sorted(required_values - values)}')
+ 
++    for tag in ['register', 'load', 'tick', 'list', 'enable', 'disable', 'reload']:
++        tag_path = PACK / 'data' / 'runtoolkit' / 'tags' / 'function' / f'{tag}.json'
++        if not tag_path.exists():
++            fail(f'missing runtoolkit function tag {tag_path.relative_to(ROOT)}')
++        values = set(load_json(tag_path).get('values', []))
++        expected_value = f'runtoolkit:packs/rtwrapper/{tag}'
++        if expected_value not in values:
++            fail(f'{tag_path.relative_to(ROOT)} missing {expected_value}')
++
++    for function in [
++        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'enable.mcfunction',
++        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'disable.mcfunction',
++        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'reload.mcfunction',
++        PACK / 'data' / 'runtoolkit' / 'function' / 'api' / 'list.mcfunction',
++        PACK / 'data' / 'runtoolkit' / 'function' / 'manager' / 'require.mcfunction',
++    ]:
++        if not function.exists():
++            fail(f'missing Runtoolkit manager function {function.relative_to(ROOT)}')
++
+     for advancement in [
+         PACK / 'data' / 'runtoolkit' / 'advancement' / 'root.json',
+         PACK / 'data' / 'runtoolkit' / 'advancement' / 'packs' / 'rtwrapper.json',
