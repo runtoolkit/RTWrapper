@@ -44,6 +44,7 @@ sourceSets {
             // datapack/RTWrapper-Datapack as a separate root deliverable.
             srcDir 'datapack/RTWrapper-Datapack'
             exclude 'README.md'
+            exclude 'pack.png'
         }
     }
 }
