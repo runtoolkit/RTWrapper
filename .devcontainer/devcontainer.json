@@ -47,5 +47,6 @@
 
   "mounts": [
     "source=gradle-cache,target=/root/.gradle,type=volume"
-  ]
+  ],
+  "onCreateCommand": "setup.sh"
 }
