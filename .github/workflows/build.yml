@@ -27,7 +27,7 @@ jobs:
           printf "online-mode=false\nserver-port=25565\n" > run/server.properties
           
       - name: Validate datapack
-        run: cd datapack/RTWrapper-Datapack/pack.mcmeta && python3 scripts/validate_datapack.py && cd ..
+        run: cd datapack/RTWrapper-Datapack && python3 scripts/validate_datapack.py && cd ..
       - name: Build mod, datapack zip, and run server GameTests
         run: gradle build
       - name: Store reports
