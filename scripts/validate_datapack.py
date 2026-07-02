@@ -48,8 +48,8 @@ def main() -> None:
         fail('pack.mcmeta pack_format must be 107 for the 26.2 target')
 
     required_tag_values = {
-        'load': {'rtwrapper:core/load', 'runtoolkit:core/load'},
-        'tick': {'rtwrapper:core/tick', 'runtoolkit:core/tick'},
+        'load': {'rtwrapper:core/load"},
+        'tick': {'rtwrapper:core/tick'},
     }
     for tag, required_values in required_tag_values.items():
         data = load_json(PACK / 'data' / 'minecraft' / 'tags' / 'function' / f'{tag}.json')
