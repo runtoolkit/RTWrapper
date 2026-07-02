@@ -28,7 +28,7 @@ API_CMD_DIR = PACK / "data" / "rtwrapper" / "function" / "api" / "commands"
 HANDLER_DIR = PACK / "data" / "rtwrapper" / "function" / "core" / "wrappers" / "handler"
 
 TARGET = "Java Edition 26.2"
-PACK_FORMAT = 104
+PACK_FORMAT = 107
 
 # Java Edition 26.2 normal commands and aliases.
 COMMANDS = [
