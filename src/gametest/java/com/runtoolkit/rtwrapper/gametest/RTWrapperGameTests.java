@@ -21,6 +21,12 @@ public final class RTWrapperGameTests implements CustomTestMethodInvoker {
     }
 
     @GameTest
+    public void datapackSmokeWithTickLoad(GameTestHelper context) {
+        runSmokeFunction(context, "runtoolkit:load", "#init");
+        context.succeed();
+    }
+
+    @GameTest
     public void datapackSmokeWithTypeAlias(GameTestHelper context) {
         runSmokeFunction(context, "rtwrapper:tests/datapack_smoke_type", "#smoke_type");
         context.succeed();
