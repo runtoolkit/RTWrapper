@@ -1,4 +1,4 @@
-summon minecarft:interaction ~ ~ ~ {Tags:["RTWrapper"],CustomName:{"text": "RTWrapper"}}
+summon minecraft:interaction ~ ~ ~ {Tags:["RTWrapper"],CustomName:{"text": "RTWrapper"}}
 
 execute as @e[type=minecaraft:interaction,tag=RTWrapper] at @s run say Starting test mode...
 
