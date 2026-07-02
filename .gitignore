@@ -24,3 +24,6 @@ run-*/
 # OS
 .DS_Store
 Thumbs.db
+
+!gradle/wrapper/gradle-wrapper.jar
+!datapack/
