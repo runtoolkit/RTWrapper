@@ -1,6 +1,5 @@
 {
   "name": "Minecraft Fabric + Datapack Dev",
-  "image": "mcr.microsoft.com/devcontainers/java:1-25-bookworm",
 
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
