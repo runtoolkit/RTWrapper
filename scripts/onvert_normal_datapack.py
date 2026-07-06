@@ -1,5 +1,4 @@
-import subprocess
+import os
 
 print("Converting...")
-convertToNormalDatapack = subprocess.run(["bash", "scripts/convert_normal_datapack.sh"], capture_output=True, text=True)
-convertToNormalDatapack()
+convertToNormalDatapack = os.system("bash scripts/onvert_normal_datapack.sh")
