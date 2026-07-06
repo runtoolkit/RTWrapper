@@ -80,6 +80,7 @@ tasks.named('check') {
 }
 
 tasks.register('datapackZip', Zip) {
+    commandLine 'python3', 'scripts/onvert_normal_datapack.py'
     group = 'build'
     description = 'Builds the standalone RTWrapper datapack zip.'
     from('datapack/RTWrapper-Datapack')

@@ -23,6 +23,7 @@
         "color": "dark_gray"
       }
     ],
+    "background": "minecraft:textures/block/deepslate_tiles.png",
     "frame": "task",
     "show_toast": false,
     "announce_to_chat": false,
