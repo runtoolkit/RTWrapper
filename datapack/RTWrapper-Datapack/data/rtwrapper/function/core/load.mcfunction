@@ -2,6 +2,7 @@
 # Scoreboards are intentionally stable fake-player state; existing values are not overwritten.
 scoreboard objectives add rtw.config dummy
 scoreboard objectives add rtw.status dummy
+scoreboard objectives add rtw.test dummy
 
 execute unless score #debug rtw.config matches 0.. run scoreboard players set #debug rtw.config 0
 execute unless score #silent rtw.config matches 0.. run scoreboard players set #silent rtw.config 1
