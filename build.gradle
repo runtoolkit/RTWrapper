@@ -79,7 +79,7 @@ tasks.register('validateDatapack', Exec) {
 tasks.register('convertNormalDatapack', Exec) {
     group = 'build'
     description = 'It deletes the GameTest files and the rtw.test score, and generates a normal user datapack.'
-    commandLine 'python3', 'scripts/ccconvert_normal_datapack.py'
+    commandLine 'python3', 'scripts/convert_normal_datapack.py'
 }
 
 tasks.named('check') {
