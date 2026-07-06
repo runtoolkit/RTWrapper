@@ -75,12 +75,17 @@ tasks.register('validateDatapack', Exec) {
     commandLine 'python3', 'scripts/validate_datapack.py'
 }
 
+tasks.register('convertNormalDatapack', Exec) {
+    group = 'build'
+    description = 'It deletes the GameTest files and the rtw.test score, and generates a normal user datapack.'
+    commandLine 'python3', 'scripts/onvert_normal_datapack.py'
+}
+
 tasks.named('check') {
     dependsOn tasks.named('validateDatapack')
 }
 
 tasks.register('datapackZip', Zip) {
-    commandLine 'python3', 'scripts/onvert_normal_datapack.py'
     group = 'build'
     description = 'Builds the standalone RTWrapper datapack zip.'
     from('datapack/RTWrapper-Datapack')
