@@ -73,6 +73,7 @@ tasks.register('validateDatapack', Exec) {
     group = 'verification'
     description = 'Validates RTWrapper datapack JSON, function layout, and generated command wrappers.'
     commandLine 'python3', 'scripts/validate_datapack.py'
+    dependsOn tasks.named('convertNormalDatapack')
 }
 
 tasks.register('convertNormalDatapack', Exec) {
@@ -83,7 +84,6 @@ tasks.register('convertNormalDatapack', Exec) {
 
 tasks.named('check') {
     dependsOn tasks.named('validateDatapack')
-    dependsOn tasks.named('convertNormalDatapack')
 }
 
 tasks.register('datapackZip', Zip) {
