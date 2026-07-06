@@ -83,6 +83,7 @@ tasks.register('convertNormalDatapack', Exec) {
 
 tasks.named('check') {
     dependsOn tasks.named('validateDatapack')
+    dependsOn tasks.named('convertNormalDatapack')
 }
 
 tasks.register('datapackZip', Zip) {
