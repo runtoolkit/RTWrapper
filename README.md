@@ -2,7 +2,7 @@
 
 RTWrapper is a Fabric mod + standalone datapack for Java Edition 26.2. The mod embeds the same datapack data tree, while `datapack/RTWrapper-Datapack/` can be zipped and installed separately.
 
---
+---
 # ⚠️ WARNING — DO NOT DOWNLOAD OR RUN THIS DATAPACK
 
 **Do not download, install, or run this datapack unless you fully understand its contents and trust its source.**
