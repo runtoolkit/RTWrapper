@@ -1,7 +1,10 @@
 {
+  "name": "RTWrapper",
+  "id": "rtwrapper",
   "target": "Java Edition 26.2",
-  "pack_format": 104,
+  "pack_format": 107,
   "namespace": "rtwrapper",
+  "links": ["https://github.com/runtoolkit/RTWrapper"]
   "variant_dispatch": true,
   "command_params": {
     "advancement": [
@@ -622,16 +625,7 @@
     "worldborder",
     "xp"
   ],
-  "debug_commands": [
-    "chase",
-    "debugconfig",
-    "debugmobspawning",
-    "debugpath",
-    "raid",
-    "serverpack",
-    "spawn_armor_trims",
-    "warden_spawn_tracker"
-  ],
+  "debug_commands": [],
   "convenience_wrappers": [
     "give_item",
     "teleport_pos",
