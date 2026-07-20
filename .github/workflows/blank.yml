@@ -1,0 +1,53 @@
+# This is a basic workflow to help you get started with Actions
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install mecha
+        run: pip install mecha
+
+      - name: Validate datapack (mcfunction + JSON)
+        run: mecha datapack -m 1.21.1 -j mecha-report.json
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mecha-report
+          path: mecha-report.json
+
+      - name: Create datapack ZIP
+        run: |
+          cd datapack
+          zip -r ../${{ github.event.repository.name }}.zip . -x ".*"
+
+      - name: Upload datapack artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: datapack
+          path: ${{ github.event.repository.name }}.zip
