@@ -32,7 +32,7 @@ jobs:
         run: pip install mecha
 
       - name: Validate datapack (mcfunction + JSON)
-        run: mecha datapack -m 107 -j mecha-report.json
+        run: mecha datapack/RTWrapper-Datapack -j mecha-report.json && mecha datapack/RTWrapper-Datapack
 
       - name: Upload validation report
         if: always()
