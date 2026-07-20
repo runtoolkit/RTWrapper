@@ -11,7 +11,7 @@
 # batch's own actions increment it) is attached to every element so a dependent pack can
 # correlate results afterwards via rtw.status or its own bookkeeping.
 #
-# Deliberately NOT included here (left for a later -pre1 pass): atomic all-or-nothing
+# Deliberately NOT included here (left for a later -pre2 pass): atomic all-or-nothing
 # rollback, and short-circuiting the rest of a batch if one element's dispatch sets
 # #errors. Right now a failed element just increments #errors and the batch continues.
 
