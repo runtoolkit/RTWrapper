@@ -4,8 +4,9 @@
   "target": "Java Edition 26.2",
   "pack_format": 107,
   "namespace": "rtwrapper",
-  "links": ["https://github.com/runtoolkit/RTWrapper"]
+  "links": ["https://github.com/runtoolkit/RTWrapper"],
   "variant_dispatch": true,
+  "version": "v0.1.2-pre1",
   "command_params": {
     "advancement": [
       "action",

@@ -1,6 +1,6 @@
 {
   "pack": {
-    "description": "RTWrapper 26.2 macro-command wrapper API",
+    "description": "RTWrapper v0.1.2-pre1 — framework/library datapack. macro-command wrapper API for other packs to depend on. Gate check: execute unless data storage rtwrapper:meta {version:\"v0.1.2-pre1\",id:\"RTWrapper\",type:\"datapack\",datapack_type:\"library\",status:\"enabled\"} run return 0",
     "pack_format": 107,
     "supported_formats": {
       "min_inclusive": 107,

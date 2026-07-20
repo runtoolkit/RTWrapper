@@ -1,0 +1,1 @@
+execute unless data storage rtwrapper:meta {} run data merge storage rtwrapper:meta {version:"v0.1.2-pre1",id:"RTWrapper",type:"datapack",datapack_type:"library",status:"enabled"}
