@@ -32,7 +32,7 @@ jobs:
         run: pip install mecha==0.101.0
 
       - name: Validate datapack (mcfunction + JSON)
-        run: mecha datapack/RTWrapper-Datapack -m 1.21 -j mecha-report.json
+        run: mecha datapack/RTWrapper-Datapack -m 1.21 -s -j mecha-report.json
 
       - name: Upload validation report
         if: always()
@@ -50,4 +50,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: datapack
-          path: ${{ github.event.repository.name }}.zip
+          path: datapack/${{ github.event.repository.name }}.zip
