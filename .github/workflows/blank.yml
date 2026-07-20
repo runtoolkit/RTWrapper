@@ -31,7 +31,7 @@ jobs:
       - name: Install mecha
         run: pip install mecha==0.101.0
 
-      - name: Validate datapack (mcfunction + JSON)
+      - name: Validate datapack
         run: mecha datapack/RTWrapper-Datapack
 
       - name: Upload validation report
