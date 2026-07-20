@@ -43,7 +43,7 @@ jobs:
 
       - name: Create datapack ZIP
         run: |
-          cd datapack
+          cd datapack/RTWrapper-Datapack
           zip -r ../${{ github.event.repository.name }}.zip . -x ".*"
 
       - name: Upload datapack artifact
